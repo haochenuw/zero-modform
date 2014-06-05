@@ -10,3 +10,16 @@ def weight_index(p,k):
         return (ZZ(A),ZZ(B),ZZ(C))
     except:
         return None
+
+
+def prec(p,k):
+    """
+    returns the precisions needed for computing the zero
+    polynomial of a modular form f.
+    return a tuple (k(g-1)+2,kg+1,p(kg+1)). Ordered from
+    small to large, and they are the precisions needed
+    for (Delta,E4,E6), (f), (f(q^{1/p})), respectively.
+    We are going to add 1 for safety
+    """
+    g = Gamma0(p).genus()
+    return (k*(g-1)+ 2 + 1 , k*g+1 + 1, p*(k*g+1 + 1))
