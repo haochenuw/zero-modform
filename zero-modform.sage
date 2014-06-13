@@ -1,3 +1,52 @@
+from sage.matrix.matrix_integer_dense import _lift_crt
+
+
+
+def zero_poly(f,p,k,description):
+    """
+    Input: f -- the power series expansion of a modular form
+           k -- the weight of f
+    Output: the polynomial satified by the j-invariants of f(z)(dz)^k/2
+    """
+    v = precs(p,k)
+    try:
+        f = f.qexp(v[2])
+    except:
+        pass
+    Nf = norm_multimodular(f,p,k)
+    verbose('done computing the norm')
+    Fq = normalize(Nf)/normalize(weight_factor(p,k))
+    L = Fq.truncate_laurentseries(1).coefficients()
+    verbose("L = %s"%str(L))
+    alist = []
+    prec_low = precs(p,k)[0]
+    verbose('prec_low =  %s'%prec_low)
+    assert len(L) == prec_low
+    # computing the j-invariant
+    E4 = eisenstein_series_qexp(4, prec_low+1)
+    delta = delta_qexp(prec_low+1)
+    j_inv = normalize(E4**3)/delta
+    jinvs = [j_inv**0,j_inv]
+    while len(jinvs) < prec_low:
+        a =  jinvs[-1]
+        jinvs.append(a*j_inv)
+    verbose('j-invariants computed')
+    assert len(jinvs) == prec_low
+    for i in range(prec_low):
+        d = prec_low-1-i
+        fd = get_principal_part(jinvs[d],prec_low)
+        ad = L[i]/fd[i]
+        alist.append(ad)
+        L = [L[j]-ad*fd[j] for j in range(prec_low)]
+    print 'L = ', L
+    T.<x> = QQ[]
+    F = T(alist[::-1])
+    save(F, os.path.join(os.environ['HOME'],'critical-point','zero-modform','F%s-%s-%s'%(p,k,description)))
+    return F
+
+def normalize(g):
+    return g/g.padded_list()[g.valuation()]
+
 def weight_index(p,k):
     """
     return the tuple (A,B,C) in the writeup in misc math project/zero-polynomial
@@ -11,6 +60,20 @@ def weight_index(p,k):
     except:
         return None
 
+# this weight_index function is one of the main functions
+# that should be revised if we want to generalize this to square free level.
+
+
+
+def weight_factor(p,k):
+    prec_low = precs(p,k)[0]
+    A,B,C = weight_index(p,k)
+    E4 = eisenstein_series_qexp(4, prec_low)
+    E6 = eisenstein_series_qexp(6, prec_low)
+    delta = delta_qexp(prec_low+1)
+    verbose('adjustment factors: %s, %s, %s'%(A,B,C))
+    return delta**A*E4**B*E6**C
+
 
 def precs(p,k):
     """
@@ -22,7 +85,7 @@ def precs(p,k):
     We are going to add 1 for safety
     """
     g = Gamma0(p).genus()
-    return (k*(g-1)+ 2 + 1 , k*g+1 + 1, p*(k*g+1 + 1))
+    return (k*(g-1)+ 1 , k*g+1 + 1, p*(k*g+1 + 1))
 
 def coef_bound(p,k):
     """
@@ -51,6 +114,16 @@ def mod1_primes(p,N):
             prod *= a
     return result
 
+def get_principal_part(f,n):
+    """
+    returns the principal part + constant part of the
+    coefficients of a Laurent series f
+    if the length l <n, put n-l zeros in there.
+    """
+    s = f.truncate_laurentseries(1).coefficients()
+    return  [0]*(n-len(s)) + s
+
+
 
 def norm_mod_l(f,p,z):
     """
@@ -63,7 +136,7 @@ def norm_mod_l(f,p,z):
     """
 
     prec_big = f.prec()
-    verbose("Number of multiplications to perform on powerseries with precision %s : %s"%(prec,p))
+    verbose("Number of multiplications to perform on powerseries with precision %s : %s"%(prec_big,p))
     L = f.padded_list() # raised everything to pth power q = q'^p
     Fl = z.parent()
     Rl.<x> = Fl[[]]
@@ -89,14 +162,14 @@ def norm_multimodular(f,p,k):
     ASSUMPTION: f has integer coefficients
     """
     bigN = coef_bound(p,k)
-    precs = prec(p,k)
-    prec_big = precs[2]
+    v = precs(p,k)
+    prec_big = v[2]
     phip = cyclotomic_polynomial(p)
     verbose('the bound on the size of coefficents of the norm is %s'%bigN)
     llist = mod1_primes(p,2*bigN) #multiply by 2 since we are inside the interval [-bigN, bigN]
     verbose('we are using %s primes'%len(llist))
     Matlist = []
-    prec_med = precs[1]
+    prec_med = v[1]
     count = 0
     for l in llist:
         phipl = phip.change_ring(GF(l))
@@ -110,6 +183,9 @@ def norm_multimodular(f,p,k):
     M = _lift_crt(Matrix(ZZ, 1, prec_med), Matlist)
     R.<q> = QQ[[]]
     return R(M.list())*f.truncate(prec_med)
+
+
+
 
 
 
