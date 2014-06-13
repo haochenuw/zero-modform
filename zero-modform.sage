@@ -42,6 +42,7 @@ def zero_poly(f,p,k,description):
     T.<x> = QQ[]
     F = T(alist[::-1])
     save(F, os.path.join(os.environ['HOME'],'critical-point','zero-modform','F%s-%s-%s'%(p,k,description)))
+    verbose('zero polynomial computed and saved.')
     return F
 
 def normalize(g):
@@ -85,7 +86,7 @@ def precs(p,k):
     We are going to add 1 for safety
     """
     g = Gamma0(p).genus()
-    return (k*(g-1)+ 1 , k*g+1 + 1, p*(k*g+1 + 1))
+    return (k*(g-1)+ 1+1 , k*g+1 + 1, p*(k*g+1 + 1))
 
 def coef_bound(p,k):
     """
@@ -186,8 +187,29 @@ def norm_multimodular(f,p,k):
 
 
 
+# algorithm for general square free level N #
+
+def base_prec(N,k):
+    """
+    the precision B needed for N_N(f), i.e., we need
+    to compute N_N(f)(q) = \cdots + q^(B) + \cdots
+    """
+    g = Gamma0(N).genus()
+    return k*(g-1) + 1 + sigma(N,0)*k//2
 
 
+def weight_index_comp(N,k):
+    """
+    the exponent of D, E4, E6 on the denominator
+    """
+    v = N.prime_divisors()
+    B = prod([(1 + kronecker(-3,p)) for p in v])*k
+    C = prod([(1 + kronecker(-1,p)) for p in v])*k//2
+    A = (k*(sigma(N,1))-4*B-6*C)/12
+    try:
+        return (ZZ(A),ZZ(B),ZZ(C))
+    except:
+        return None
 
 
 
