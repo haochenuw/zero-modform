@@ -10,10 +10,10 @@ def zero_poly(f,p,k,description):
     """
     v = precs(p,k)
     try:
-        f = f.qexp(v[2])
+        f = f.qexp(v[2]+1) # added one since the way qexp works.
     except:
         pass
-    Nf = norm_multimodular(f,p,k)
+    Nf = Norm(f,p,k)
     verbose('done computing the norm')
     Fq = normalize(Nf)/normalize(weight_factor(p,k))
     L = Fq.truncate_laurentseries(1).coefficients()
@@ -48,21 +48,6 @@ def zero_poly(f,p,k,description):
 def normalize(g):
     return g/g.padded_list()[g.valuation()]
 
-def weight_index(p,k):
-    """
-    return the tuple (A,B,C) in the writeup in misc math project/zero-polynomial
-    of modform. Here p = level, k = weight.
-    """
-    B = (1 + kronecker(-3,p))*k
-    C = (1 + kronecker(-1,p))*k/2
-    A = (k*(p+1)-4*B-6*C)/12
-    try:
-        return (ZZ(A),ZZ(B),ZZ(C))
-    except:
-        return None
-
-# this weight_index function is one of the main functions
-# that should be revised if we want to generalize this to square free level.
 
 
 
@@ -86,16 +71,15 @@ def precs(p,k):
     We are going to add 1 for safety
     """
     g = Gamma0(p).genus()
-    return (k*(g-1)+ 1+1 , k*g+1 + 1, p*(k*g+1 + 1))
+    return (k*(g-1)+ 1 , k*g+1+1 , p*(k*g+1 + 1))
 
-def coef_bound(p,k):
+def coef_bound(p,k,prec):
     """
     bound the largest possible coefficient of
     a product of p modular forms with degree prec, where if f = \sum a_nq^n
     then each term in the product is f = \sum a_n b_n q^n
     with |b_n| = 1 for all n.
     """
-    prec= precs(p,k)[1] # the medium precision, needed for the norm of f
     return RR(binomial(prec + p-1, p-1)*(prec^(k*p/2)))
 
 
@@ -150,27 +134,26 @@ def norm_mod_l(f,p,z):
         tmp = Rl([z**(i*k)*Lbar[i] for i in range(prec_big)])
         F = F * tmp
         F = F.truncate(prec_big)
-    new_prec = ZZ(prec_big//p)
     verbose("The multiplication for the prime %s is performed within %s seconds"%(l, cputime(t)))
+    verbose("length of coefficients for prime %s: %s"%(l,len(F.padded_list()[0::p])))
     return F.padded_list()[0::p]
 
 
-def norm_multimodular(f,p,k):
+def norm(f,p,k):
     """
     Given a modular form of weight k and level p.
     sing multimodular algorithm(computing mod primes, and use CRT to lift back)
     to compute the norm of a modular form f of level p
     ASSUMPTION: f has integer coefficients
     """
-    bigN = coef_bound(p,k)
-    v = precs(p,k)
-    prec_big = v[2]
+    prec_big = f.prec()
+    prec_med = prec_big//p
+    bigN = coef_bound(p,k,prec_med)
     phip = cyclotomic_polynomial(p)
     verbose('the bound on the size of coefficents of the norm is %s'%bigN)
     llist = mod1_primes(p,2*bigN) #multiply by 2 since we are inside the interval [-bigN, bigN]
     verbose('we are using %s primes'%len(llist))
     Matlist = []
-    prec_med = v[1]
     count = 0
     for l in llist:
         phipl = phip.change_ring(GF(l))
@@ -183,9 +166,13 @@ def norm_multimodular(f,p,k):
         verbose('computation done for the %s-th prime'%(count))
     M = _lift_crt(Matrix(ZZ, 1, prec_med), Matlist)
     R.<q> = QQ[[]]
-    return R(M.list())*f.truncate(prec_med)
+    return R(M.list()).add_bigoh(prec_med)
 
-
+def Norm(f,p,k):
+    R.<q> = QQ[[]]
+    nf = norm(f,p,k)
+    prec_med = nf.prec()
+    return R(nf*f.truncate(prec_med)).add_bigoh(prec_med)
 
 # algorithm for general square free level N #
 
@@ -195,10 +182,10 @@ def base_prec(N,k):
     to compute N_N(f)(q) = \cdots + q^(B) + \cdots
     """
     g = Gamma0(N).genus()
-    return k*(g-1) + 1 + sigma(N,0)*k//2
+    return (k*(g-1)+1, k*(g-1) + 1 + sigma(N,0)*k//2)
 
 
-def weight_index_comp(N,k):
+def weight_index(N,k):
     """
     the exponent of D, E4, E6 on the denominator
     """
@@ -212,5 +199,61 @@ def weight_index_comp(N,k):
         return None
 
 
+def Norm_comp(f,N,weight):
+    """
+    Given a modular form of weight k and level N(N = square free),
+    using multimodular algorithm(computing mod primes, and use CRT to lift back)
+    to compute the norm of f, with accuracy upto q^prec.
+    ASSUMPTION: f has integer coefficients
+    """
+    v = N.prime_divisors()
+    tmp = f
+    for p in v:
+        tmp = Norm(tmp,p,weight)
+        weight = weight*(p+1)
+    return tmp
 
+
+# to-do: return to Norm to deal with the issue of precision information
+
+
+def zero_poly_comp(f,N,k,description):
+    v = base_prec(N,k) # this is the power of q we need in computing the norm
+    prec_low = v[0]
+    prec_high = sigma(N,1)*prec_low
+    try:
+        f = f.qexp(prec_high+1)
+    except:
+        pass
+    Nf = Norm_comp(f,N,k)
+    num_terms = v[0]
+    verbose('valuation of Nf = %s'%Nf.valuation())
+    verbose('done computing the norm')
+    Fq = normalize(Nf)/normalize(weight_factor(N,k))
+    L = Fq.truncate_laurentseries(1).coefficients()
+    verbose("length of L is %s"%len(L))
+    alist = []
+    verbose('number of terms =  %s'%num_terms)
+    assert len(L) == num_terms
+    # computing the j-invariant
+    E4 = eisenstein_series_qexp(4, prec_low+1)
+    delta = delta_qexp(prec_low+1)
+    j_inv = normalize(E4**3)/delta
+    jinvs = [j_inv**0,j_inv]
+    while len(jinvs) < num_terms:
+        a =  jinvs[-1]
+        jinvs.append(a*j_inv)
+    verbose('j-invariants computed')
+    for i in range(num_terms):
+        d = prec_low-1-i
+        fd = get_principal_part(jinvs[d],num_terms)
+        ad = L[i]/fd[i]
+        alist.append(ad)
+        L = [L[j]-ad*fd[j] for j in range(num_terms)]
+    print 'L = ', L
+    T.<x> = QQ[]
+    F = T(alist[::-1])
+    save(F, os.path.join(os.environ['HOME'],'critical-point','zero-modform','F%s-%s-%s'%(N,k,description)))
+    verbose('zero polynomial computed and saved.')
+    return F
 
