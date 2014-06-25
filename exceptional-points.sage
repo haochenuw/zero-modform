@@ -30,19 +30,22 @@ def exc_points(p):
     return result
 
 def find_exc_points(f,t,p):
+    result = []
     D = f.discriminant()
-    R.<x> = ZZ[]
-    K.<tau> = NumberField(R(f.polynomial()(y=1)))
-    a = f[0]; b = f[1] # tau = [-b+sqrt(D)]/2a
+    R.<x> = QQ[]
+    a, b = f[0],f[1]
+    K.<tau> = NumberField(R(f.polynomial()(y=1)/a))
+    # tau = [-b+sqrt(D)]/2a
     sqrtD = 2*a*tau + b
     A = mat(a,b,t,D) # the matrix of alpha acting on [1,tau], where alpha = (t + sqrtD) /2
+    verbose('A = %s'%str(A))
     assert A.det() == p^2
     assert A.trace() == t
 
     A = A.change_ring(ZZ)
     D,P,Q = A.smith_form()
-    assert d[0][0] == 1
-    assert d[1][1] == p^2
+    verbose('det(D) = %s'%D.det())
+    assert D[0][0] == 1
 
     glist = [] # the generators of cyclic p-subgroup of C/Z+Z*tau
     glist.append((P[1][0]+P[1][1]*tau)/p)
@@ -53,12 +56,23 @@ def find_exc_points(f,t,p):
         result.append(adjust(tau,g,p))
     return result
 
+def mat(a,b,t,D):
+    """
+    return the matrix of (t+sqrtD)/2 acting on column vector [1, (-b+sqrtD)/2a]
+    """
+    return matrix([[(t+b)/2,a],[(D-b^2)/(4*a),(t-b)/2]])
+
+
 
 def adjust(tau,g,p):
     c,d = vector([p*g.matrix()[0][0], p*g.matrix()[0][1]])
-    a,b = xgcd(c,d)[1],xgcd(c,d)[2]
+    a,b,c,d = lift_to_sl2z(c,d,0)
     assert a*d - b*c == 1
     return (a+b*tau)/(c+d*tau)
+
+#p = 37
+#set_verbose(1)
+#z = exc_points(p)
 
 
 
