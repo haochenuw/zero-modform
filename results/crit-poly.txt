@@ -1,3 +1,5 @@
+Critical polynomials for elliptic curve with prime conductor < 1000
+
 E = 37a1
 F_E = x^2 - 39660183801072000*x - 7898242515936467904000000
 
