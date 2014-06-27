@@ -17,6 +17,6 @@ The folder 'results' contains two files:
 crit-poly.txt: contains all critical polynomials of elliptic curves with prime conductor p <1000 such that 
 genus(X_0(p)) > 1. 
 
-389
+389-zero-pol.txt: contains zero polynomials for traces of the 5 newforms of weight 2 and level 389. 
 
 
