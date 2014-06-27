@@ -2,7 +2,7 @@ from sage.matrix.matrix_integer_dense import _lift_crt
 
 
 
-def zero_poly(f,p,k,description):
+def zero_poly(f,p,k,description,deg = 1):
     """
     Input: f -- the power series expansion of a modular form
            k -- the weight of f
@@ -13,7 +13,7 @@ def zero_poly(f,p,k,description):
         f = f.qexp(v[2]+1) # added one since the way qexp works.
     except:
         pass
-    Nf = Norm(f,p,k)
+    Nf = Norm(f,p,k,deg)
     verbose('done computing the norm')
     Fq = normalize(Nf)/normalize(weight_factor(p,k))
     L = Fq.truncate_laurentseries(1).coefficients()
@@ -73,14 +73,14 @@ def precs(p,k):
     g = Gamma0(p).genus()
     return (k*(g-1)+ 1 , k*g+1+1 , p*(k*g+1 + 1))
 
-def coef_bound(p,k,prec):
+def coef_bound(p,k,prec,deg):
     """
     bound the largest possible coefficient of
     a product of p modular forms with degree prec, where if f = \sum a_nq^n
     then each term in the product is f = \sum a_n b_n q^n
     with |b_n| = 1 for all n.
     """
-    return RR(binomial(prec + p-1, p-1)*(prec^(k*p/2)))
+    return RR(binomial(prec*p + p-1, p-1)*((2*deg*prec)^(k*p/2)))
 
 
 def mod1_primes(p,N):
@@ -139,7 +139,7 @@ def norm_mod_l(f,p,z):
     return F.padded_list()[0::p]
 
 
-def norm(f,p,k):
+def norm(f,p,k,deg):
     """
     Given a modular form of weight k and level p.
     sing multimodular algorithm(computing mod primes, and use CRT to lift back)
@@ -148,7 +148,7 @@ def norm(f,p,k):
     """
     prec_big = f.prec()
     prec_med = prec_big//p
-    bigN = coef_bound(p,k,prec_med)
+    bigN = coef_bound(p,k,prec_med,deg)
     phip = cyclotomic_polynomial(p)
     verbose('the bound on the size of coefficents of the norm is %s'%bigN)
     llist = mod1_primes(p,2*bigN) #multiply by 2 since we are inside the interval [-bigN, bigN]
@@ -168,9 +168,9 @@ def norm(f,p,k):
     R.<q> = QQ[[]]
     return R(M.list()).add_bigoh(prec_med)
 
-def Norm(f,p,k):
+def Norm(f,p,k,deg):
     R.<q> = QQ[[]]
-    nf = norm(f,p,k)
+    nf = norm(f,p,k,deg)
     prec_med = nf.prec()
     return R(nf*f.truncate(prec_med)).add_bigoh(prec_med)
 
