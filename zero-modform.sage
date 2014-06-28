@@ -2,7 +2,7 @@ from sage.matrix.matrix_integer_dense import _lift_crt
 
 
 
-def zero_poly(f,p,k,description,deg = 1):
+def zero_poly(f,p,k,description,deg = 1,check =False):
     """
     Input: f -- the power series expansion of a modular form
            k -- the weight of f
@@ -13,7 +13,7 @@ def zero_poly(f,p,k,description,deg = 1):
         f = f.qexp(v[2]+1) # added one since the way qexp works.
     except:
         pass
-    Nf = Norm(f,p,k,deg)
+    Nf = Norm(f,p,k,deg,check)
     verbose('done computing the norm')
     Fq = normalize(Nf)/normalize(weight_factor(p,k))
     L = Fq.truncate_laurentseries(1).coefficients()
@@ -38,7 +38,7 @@ def zero_poly(f,p,k,description,deg = 1):
         ad = L[i]/fd[i]
         alist.append(ad)
         L = [L[j]-ad*fd[j] for j in range(prec_low)]
-    print 'L = ', L
+    #print 'L = ', L
     T.<x> = QQ[]
     F = T(alist[::-1])
     save(F, os.path.join(os.environ['HOME'],'critical-point','zero-modform','F%s-%s-%s'%(p,k,description)))
@@ -139,7 +139,7 @@ def norm_mod_l(f,p,z):
     return F.padded_list()[0::p]
 
 
-def norm(f,p,k,deg):
+def norm(f,p,k,deg,check):
     """
     Given a modular form of weight k and level p.
     sing multimodular algorithm(computing mod primes, and use CRT to lift back)
@@ -149,6 +149,8 @@ def norm(f,p,k,deg):
     prec_big = f.prec()
     prec_med = prec_big//p
     bigN = coef_bound(p,k,prec_med,deg)
+    if check:
+        bigN = floor(bigN^(1.2))
     phip = cyclotomic_polynomial(p)
     verbose('the bound on the size of coefficents of the norm is %s'%bigN)
     llist = mod1_primes(p,2*bigN) #multiply by 2 since we are inside the interval [-bigN, bigN]
@@ -168,9 +170,9 @@ def norm(f,p,k,deg):
     R.<q> = QQ[[]]
     return R(M.list()).add_bigoh(prec_med)
 
-def Norm(f,p,k,deg):
+def Norm(f,p,k,deg,check):
     R.<q> = QQ[[]]
-    nf = norm(f,p,k,deg)
+    nf = norm(f,p,k,deg,check)
     prec_med = nf.prec()
     return R(nf*f.truncate(prec_med)).add_bigoh(prec_med)
 
