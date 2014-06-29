@@ -19,13 +19,49 @@ def exc_points(p):
     p -- a prime number
     OUTPUT:
     the full list of exceptional points on Y_0(p)
+
+    EXAMPLES::
+
+        sage: p = 37; z = exc_points(p)
+        sage: (2*p-1)*(2*p-2)/2 - 2*(p-1)*(p-2)/2 - len(z)//2 - Gamma0(p).genus()
+        sage: 0
+
+
     '''
     result = []
-    for t in corrected_interval(p):
-        D = t^2- 4*p^2
-        quadforms =  BinaryQF_reduced_representatives(D,primitive_only = False)
-        for f in quadforms:
-            result = result + find_exc_points(f,t,p)
+    s1 = adjust_i(p)[1:]
+    s2 = adjust_rho(p)[1:]
+    print 's1 = ', s1
+    print 's2 = ', s2
+    for t in range(1,2*p):
+        if t != p:
+            D = t^2- 4*p^2
+            quadforms =  BinaryQF_reduced_representatives(D,primitive_only = False)
+            if t in s1:
+                print 't  = ', t
+                print 'D = ', D.factor()
+            for f in quadforms:
+                skip = False
+                if t in s1:
+                    a,b,c = f[0],f[1],f[2]
+                    d = gcd(gcd(a,b),c)
+                    a1,b1,c1 = a//d, b//d, c//d
+                    disc = b1^2-4*a1*c1
+                    print 'disc ', disc
+                    if disc == - 4:
+                        print 'skipped redundancy'
+                        skip = True
+                if t in s2:
+                    a,b,c = f[0],f[1],f[2]
+                    d = gcd(gcd(a,b),c)
+                    a1,b1,c1 = a//d, b//d, c//d
+                    disc = b1^2-4*a1*c1
+                    print 'disc ', disc
+                    if disc == - 3:
+                        print 'skipped redundancy'
+                        skip = True
+                if not skip:
+                    result = result+ find_exc_points(f,t,p)
     return result
 
 def find_exc_points(f,t,p):
@@ -71,31 +107,20 @@ def adjust(tau,g,p):
 
 # ******* auxiliary functions, to avoid overcount ********
 def adjust_i(p):
-    assert Mod(p,4) == 1
+    if not Mod(p,4) == 1:
+        return []
     K.<i> = QuadraticField(-1)
     a = K.elements_of_norm(p)[0]
     return sorted([abs((a^2).trace()), abs((i*a^2).trace())])
 
 def adjust_rho(p):
-    assert Mod(p,3) == 1
+    if not Mod(p,3) == 1:
+        return []
     K.<w> = NumberField(x^2+x+1)
     a = K.elements_of_norm(p)[0]
     return sorted([abs((a^2).trace()), abs((w*a^2).trace()),abs((w^2*a^2).trace())])
 
-def corrected_interval(p):
-    v = list(range(1,2*p))
-    v.remove(p)
-    if Mod(p,4) == 1:
-        s1 = adjust_i(p)
-        verbose('adjustment for D = -4 : %s'%str(s1))
-        v.remove(s1[1])
 
-    if Mod(p,3) == 1:
-        s2 = adjust_rho(p)
-        verbose('adjustment for D = -3 : %s'%str(s2))
-        v.remove(s2[1])
-        v.remove(s2[2])
-    return v
 
 
 #p = 37
