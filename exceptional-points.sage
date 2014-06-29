@@ -21,12 +21,11 @@ def exc_points(p):
     the full list of exceptional points on Y_0(p)
     '''
     result = []
-    for t in range(1, 2*p): # loop over the trace of \alpha
-        if t != p:
-            D = t^2- 4*p^2
-            quadforms =  BinaryQF_reduced_representatives(D,primitive_only = False)
-            for f in quadforms:
-                result = result + find_exc_points(f,t,p)
+    for t in corrected_interval(p):
+        D = t^2- 4*p^2
+        quadforms =  BinaryQF_reduced_representatives(D,primitive_only = False)
+        for f in quadforms:
+            result = result + find_exc_points(f,t,p)
     return result
 
 def find_exc_points(f,t,p):
@@ -69,6 +68,35 @@ def adjust(tau,g,p):
     a,b,c,d = lift_to_sl2z(c,d,0)
     assert a*d - b*c == 1
     return (a+b*tau)/(c+d*tau)
+
+# ******* auxiliary functions, to avoid overcount ********
+def adjust_i(p):
+    assert Mod(p,4) == 1
+    K.<i> = QuadraticField(-1)
+    a = K.elements_of_norm(p)[0]
+    return sorted([abs((a^2).trace()), abs((i*a^2).trace())])
+
+def adjust_rho(p):
+    assert Mod(p,3) == 1
+    K.<w> = NumberField(x^2+x+1)
+    a = K.elements_of_norm(p)[0]
+    return sorted([abs((a^2).trace()), abs((w*a^2).trace()),abs((w^2*a^2).trace())])
+
+def corrected_interval(p):
+    v = list(range(1,2*p))
+    v.remove(p)
+    if Mod(p,4) == 1:
+        s1 = adjust_i(p)
+        verbose('adjustment for D = -4 : %s'%str(s1))
+        v.remove(s1[1])
+
+    if Mod(p,3) == 1:
+        s2 = adjust_rho(p)
+        verbose('adjustment for D = -3 : %s'%str(s2))
+        v.remove(s2[1])
+        v.remove(s2[2])
+    return v
+
 
 #p = 37
 #set_verbose(1)
