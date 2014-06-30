@@ -31,15 +31,10 @@ def exc_points(p):
     result = []
     s1 = adjust_i(p)[1:]
     s2 = adjust_rho(p)[1:]
-    print 's1 = ', s1
-    print 's2 = ', s2
     for t in range(1,2*p):
         if t != p:
             D = t^2- 4*p^2
             quadforms =  BinaryQF_reduced_representatives(D,primitive_only = False)
-            if t in s1:
-                print 't  = ', t
-                print 'D = ', D.factor()
             for f in quadforms:
                 skip = False
                 if t in s1:
@@ -47,18 +42,14 @@ def exc_points(p):
                     d = gcd(gcd(a,b),c)
                     a1,b1,c1 = a//d, b//d, c//d
                     disc = b1^2-4*a1*c1
-                    print 'disc ', disc
                     if disc == - 4:
-                        print 'skipped redundancy'
                         skip = True
                 if t in s2:
                     a,b,c = f[0],f[1],f[2]
                     d = gcd(gcd(a,b),c)
                     a1,b1,c1 = a//d, b//d, c//d
                     disc = b1^2-4*a1*c1
-                    print 'disc ', disc
                     if disc == - 3:
-                        print 'skipped redundancy'
                         skip = True
                 if not skip:
                     result = result+ find_exc_points(f,t,p)
@@ -69,18 +60,20 @@ def find_exc_points(f,t,p):
     D = f.discriminant()
     R.<x> = QQ[]
     a, b = f[0],f[1]
-    K.<tau> = NumberField(R(f.polynomial()(y=1)/a))
+    K.<sqrtD> = QuadraticField(D)
+    tau = (-b+sqrtD)/(2*a) # tau = [-b+sqrt(D)]/2a
+    #K.<tau> = NumberField(R(f.polynomial()(y=1)/a))
     # tau = [-b+sqrt(D)]/2a
-    sqrtD = 2*a*tau + b
+    #sqrtD = 2*a*tau + b
     A = mat(a,b,t,D) # the matrix of alpha acting on [1,tau], where alpha = (t + sqrtD) /2
     verbose('A = %s'%str(A))
     assert A.det() == p^2
     assert A.trace() == t
 
     A = A.change_ring(ZZ)
-    D,P,Q = A.smith_form()
-    verbose('det(D) = %s'%D.det())
-    assert D[0][0] == 1
+    Diag,P,Q = A.smith_form()
+    verbose('det(Diag) = %s'%Diag.det())
+    assert Diag[0][0] == 1
 
     glist = [] # the generators of cyclic p-subgroup of C/Z+Z*tau
     glist.append((P[1][0]+P[1][1]*tau)/p)
@@ -88,7 +81,7 @@ def find_exc_points(f,t,p):
     f1 = Qinv[0][0] + Qinv[0][1]*tau
     glist.append(f1/p)
     for g in glist:
-        result.append(adjust(tau,g,p))
+        result.append(adjust(tau,g,p,sqrtD,a,b))
     return result
 
 def mat(a,b,t,D):
@@ -97,13 +90,17 @@ def mat(a,b,t,D):
     """
     return matrix([[(t+b)/2,a],[(D-b^2)/(4*a),(t-b)/2]])
 
-
-
-def adjust(tau,g,p):
-    c,d = vector([p*g.matrix()[0][0], p*g.matrix()[0][1]])
-    a,b,c,d = lift_to_sl2z(c,d,0)
-    assert a*d - b*c == 1
-    return (a+b*tau)/(c+d*tau)
+def adjust(tau,g,p,sqrtD,a,b):
+    # note that now the number field has basis [1,sqrtD]
+    x, y =  g.matrix()[0]
+    # so g = x + ysqrt(D)
+    assert g == x+y*sqrtD
+    # change basis: note sqrtD = 2a*tau + b
+    # so g = (x+by) + 2ay*tau = (c*tau + d)/p
+    c,d = vector([p*2*a*y,p*(x+b*y)])
+    a1,b1,c1,d1 = lift_to_sl2z(c,d,0)
+    assert a1*d1 - b1*c1 == 1
+    return (a1*tau+b1)/(c1*tau+d1)
 
 # ******* auxiliary functions, to avoid overcount ********
 def adjust_i(p):
@@ -121,11 +118,19 @@ def adjust_rho(p):
     return sorted([abs((a^2).trace()), abs((w*a^2).trace()),abs((w^2*a^2).trace())])
 
 
+def exc_j(p, prec):
+    """
+    return the list of j-invariants of exceptional points of
+    precision prec
+    """
+    zs = exc_points(p)
+    pari.set_real_precision(prec)
+    C = ComplexField(prec)
+    return [C(pari(C(z)).ellj()) for z in zs[::2]]
 
 
-#p = 37
-#set_verbose(1)
-#z = exc_points(p)
+
+
 
 
 
