@@ -1,13 +1,14 @@
 ### find the exact z ###
-
+### dependence: depend on exceptional-points.sage to compute the exceptional points.
+### implicitly, depend on zero-modform.sage to provide the zero polynomial Fj.
 from itertools import *
 from mpmath import *
 import numpy as np
-
+load('exceptional-points.sage')
 
 def twodargmin(lst1,lst2,used2):
     """
-    return (i,j) such that abs(lst[i]-lst2[j]) is the minimum among
+    (i,j) such that abs(lst[i]-lst2[j]) is the minimum among
     (i,j) such that j is not in used2
     """
 
@@ -33,23 +34,19 @@ def hyp(z,prec):
     return C(I)*(C(tau.real)+C(tau.imag)*I)
 
 
-def taus_and_js(Fj,N,prec):
-    try:
-        S.<x> = QQ[];
-        Fj = S(Fj)
-    except: pass
-    if not Fj.is_irreducible():
-        raise NotImplementedError('Fj must be irreducible.')
+def taus(jlist,N,prec):
+    """
+    return taulist such that j( taulist[i] ) = jlist[i]
+    """
     t = cputime()
     G = Gamma0(N)
     cosreps = list(G.coset_reps())
     C = ComplexField(prec)
     R.<x> = C[]
-    jlist = R(Fj).roots(multiplicities = False)
+    #jlist = R(Fj).roots(multiplicities = False)
     taulist = []
     eps = 1
     verbose('eps = %s '%eps)
-    verbose('first step done, found all the j-invs, took %s seconds'%cputime(t))
     t1 = cputime()
     for j in jlist:
         y = R(256*(1-x)^3 - j*x^2).roots(multiplicities = False)[0]
@@ -60,8 +57,7 @@ def taus_and_js(Fj,N,prec):
     zlist = []
     count = 0
     num = len(taulist)
-
-    return [taulist,jlist]
+    return taulist
     """
     # use field smaller precision since gp.ellj is slow
     C1 = CDF
@@ -120,7 +116,7 @@ def from_tau_to_z(taulist,jlist,N,eps,prec):
         if mindist < eps:
             used.append(k)
             g = cosreps[j]
-            zlist.append(g.acton(tau))
+            zlist.append(C(g.acton(tau)))
             verbose('the indexes of used j: %s'%str(used))
         else:
             raise RuntimeError('not able to identify the %s th point '%(i+1))
@@ -161,6 +157,49 @@ def adjust(lst):
     multiply by -1 every other entry
     """
     return [lst[i]*(-1)**(i+1) for i in range(0,len(lst))]
+
+
+
+def exact_zeros(Fj,N,prec,eps):
+    """
+    return an approximation in complex upper half plane representatives
+    of a well-defined set of points on Y0(N) , where Fj is the polynomial
+    satisfied by their j-invariant. See readme.md for details.
+
+    prec -- precision of computation
+    eps -- allowed error to detect exceptional points.
+    """
+    try:
+        S.<x> = QQ[]
+        Fj = S(Fj)
+    except: pass
+    if not Fj.is_irreducible():
+        raise NotImplementedError('Fj must be irreducible.')
+    if not is_prime(N):
+        raise NotImplementedError('N must be a prime.')
+    C = ComplexField(prec)
+    R.<x> = C[]
+    jlist = R(Fj).roots(multiplicities = False)
+    exceptional_jlist = [j for j,f in exc_j(N,prec)]
+    j0 = jlist[0]
+    i = closest(j0,exceptional_jlist)
+    if abs(exceptional_jlist[i][0] - j0) < eps:
+        exceptional = True
+        form = exceptional_jlist[i][0]
+        a,b,c = form[0],form[1],form[2]
+        d = gcd(gcd(a,b),c)
+        D = form.discriminant() // d^2
+        quadforms =  BinaryQF_reduced_representatives(D,primitive_only = True) # find all reps primitive forms of that discriminant
+        zs = []
+        for f in quadforms:
+            pass
+            # do something: mainly just adjust
+    else:
+        exceptional = False
+        taulist = taus(Fj,N,prec,jlist)
+        zs = from_tau_to_z(taulist,jlist,N,prec,eps)
+    return zs
+
 
 
 

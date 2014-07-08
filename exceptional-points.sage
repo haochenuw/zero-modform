@@ -29,8 +29,8 @@ def exc_points(p):
 
     '''
     result = []
-    s1 = adjust_i(p)[1:]
-    s2 = adjust_rho(p)[1:]
+    s1 = adjust_i_exc(p)[1:]
+    s2 = adjust_rho_exc(p)[1:]
     for t in range(1,2*p):
         if t != p:
             D = t^2- 4*p^2
@@ -81,7 +81,7 @@ def find_exc_points(f,t,p):
     f1 = Qinv[0][0] + Qinv[0][1]*tau
     glist.append(f1/p)
     for g in glist:
-        result.append(adjust(tau,g,p,sqrtD,a,b))
+        result.append((adjustment_exceptional(tau,g,p,sqrtD,a,b),f))
     return result
 
 def mat(a,b,t,D):
@@ -90,7 +90,7 @@ def mat(a,b,t,D):
     """
     return matrix([[(t+b)/2,a],[(D-b^2)/(4*a),(t-b)/2]])
 
-def adjust(tau,g,p,sqrtD,a,b):
+def adjustment_exceptional(tau,g,p,sqrtD,a,b):
     # note that now the number field has basis [1,sqrtD]
     x, y =  g.matrix()[0]
     # so g = x + ysqrt(D)
@@ -103,14 +103,14 @@ def adjust(tau,g,p,sqrtD,a,b):
     return (a1*tau+b1)/(c1*tau+d1)
 
 # ******* auxiliary functions, to avoid overcount ********
-def adjust_i(p):
+def adjust_i_exc(p):
     if not Mod(p,4) == 1:
         return []
     K.<i> = QuadraticField(-1)
     a = K.elements_of_norm(p)[0]
     return sorted([abs((a^2).trace()), abs((i*a^2).trace())])
 
-def adjust_rho(p):
+def adjust_rho_exc(p):
     if not Mod(p,3) == 1:
         return []
     K.<w> = NumberField(x^2+x+1)
@@ -121,14 +121,12 @@ def adjust_rho(p):
 def exc_j(p, prec):
     """
     return the list of j-invariants of exceptional points of
-    precision prec
+    precision prec, together with the complex point
     """
     zs = exc_points(p)
     pari.set_real_precision(prec)
     C = ComplexField(prec)
-    return [C(pari(C(z)).ellj()) for z in zs[::2]]
-
-
+    return [(C(pari(C(z)).ellj()),f) for z,f in zs[::2]]
 
 
 
