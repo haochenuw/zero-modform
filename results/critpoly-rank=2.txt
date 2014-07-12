@@ -1,0 +1,7 @@
+Curve    Degree    Factorization(degree,multiplicity)
+389a        62        (1,2),(60,1)
+433a        68        (68,1)
+563a        92        (1,2),(90,1)
+571b        92        (1,2),(90,1)
+643a        104        (1,2)(102,1)
+
