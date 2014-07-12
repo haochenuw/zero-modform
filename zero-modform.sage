@@ -170,7 +170,7 @@ def norm(f,p,k,deg,check):
     R.<q> = QQ[[]]
     return R(M.list()).add_bigoh(prec_med)
 
-def Norm(f,p,k,deg,check):
+def Norm(f,p,k,deg,check = False):
     R.<q> = QQ[[]]
     nf = norm(f,p,k,deg,check)
     prec_med = nf.prec()
@@ -193,15 +193,16 @@ def weight_index(N,k):
     """
     v = N.prime_divisors()
     B = prod([(1 + kronecker(-3,p)) for p in v])*k
-    C = prod([(1 + kronecker(-1,p)) for p in v])*k//2
+    C = prod([(1 + kronecker(-1,p)) for p in v if p != 2])*k//2
     A = (k*(sigma(N,1))-4*B-6*C)/12
+    verbose('A,B,C = %s,%s,%s'%(A,B,C))
     try:
         return (ZZ(A),ZZ(B),ZZ(C))
     except:
         return None
 
 
-def Norm_comp(f,N,weight):
+def Norm_comp(f,N,weight,deg):
     """
     Given a modular form of weight k and level N(N = square free),
     using multimodular algorithm(computing mod primes, and use CRT to lift back)
@@ -211,7 +212,7 @@ def Norm_comp(f,N,weight):
     v = N.prime_divisors()
     tmp = f
     for p in v:
-        tmp = Norm(tmp,p,weight)
+        tmp = Norm(tmp,p,weight,deg)
         weight = weight*(p+1)
     return tmp
 
@@ -219,18 +220,31 @@ def Norm_comp(f,N,weight):
 # to-do: return to Norm to deal with the issue of precision information
 
 
-def zero_poly_comp(f,N,k,description):
-    v = base_prec(N,k) # this is the power of q we need in computing the norm
-    prec_low = v[0]
-    prec_high = sigma(N,1)*prec_low
+def zero_poly_comp(f,N,k,description,deg =1):
+    """
+    zero-polynomial for composite square free level
+
+    EXAMPLE::
+    sage:E = EllipticCurve('446d1')
+    sage:f = E.modular_form()
+    sage:F = zero_poly_comp(f,446,2,'critical'); F.factor()
+    (x-1728)^2
+    """
+    if not N.is_squarefree():
+        raise NotImplementedError('N must be square free')
+    prec_low,prec_med = base_prec(N,k)
+    prec_high = sigma(N,1)*prec_med
+    verbose('prec_high = %s'%prec_high)
     try:
         f = f.qexp(prec_high+1)
     except:
         pass
-    Nf = Norm_comp(f,N,k)
-    num_terms = v[0]
+    Nf = Norm_comp(f,N,k,deg)
+    num_terms = prec_low
     verbose('valuation of Nf = %s'%Nf.valuation())
     verbose('done computing the norm')
+    verbose('debug: type of N %s, k %s'%(type(N),type(k)))
+    verbose('Nf = %s'%Nf)
     Fq = normalize(Nf)/normalize(weight_factor(N,k))
     L = Fq.truncate_laurentseries(1).coefficients()
     verbose("length of L is %s"%len(L))
