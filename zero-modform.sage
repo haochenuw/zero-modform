@@ -10,7 +10,7 @@ def zero_poly(f,p,k,description,deg = 1,check =False):
     """
     v = precs(p,k)
     try:
-        f = f.qexp(v[2]+1) # added one since the way qexp works.
+        f = f.qexp(v[2]+10) # added one since the way qexp works.
     except:
         pass
     Nf = Norm(f,p,k,deg,check)
@@ -73,14 +73,22 @@ def precs(p,k):
     g = Gamma0(p).genus()
     return (k*(g-1)+ 1 , k*g+1+1 , p*(k*g+1 + 1))
 
-def coef_bound(p,k,prec,deg):
+def coef_bound(f,p,k,deg,new= True):
     """
     bound the largest possible coefficient of
     a product of p modular forms with degree prec, where if f = \sum a_nq^n
     then each term in the product is f = \sum a_n b_n q^n
     with |b_n| = 1 for all n.
     """
-    return RR(binomial(prec*p + p-1, p-1)*((2*deg*prec)^(k*p/2)))
+    prec = f.prec()
+    v = f.padded_list()
+    if new:
+        C = max([abs(v[n])/n^(k/2) for n in range(1,prec)])
+    else: C = 2
+    verbose('the constant C used is %s'%C)
+    return RR(binomial(prec + p-1, p-1)*((C*deg*prec//p)^(k*p/2)))
+
+
 
 
 def mod1_primes(p,N):
@@ -112,7 +120,7 @@ def get_principal_part(f,n):
 
 def norm_mod_l(f,p,z):
     """
-    Take a modular form f of level  p with integer coefficents,
+    Take a modular form f of level p with integer coefficents,
     this function computes \prod_i (f(zeta_p^i q^1/p))
     modulo a prime l that is congruent to 1 modulo p.
 
@@ -135,7 +143,7 @@ def norm_mod_l(f,p,z):
         F = F * tmp
         F = F.truncate(prec_big)
     verbose("The multiplication for the prime %s is performed within %s seconds"%(l, cputime(t)))
-    verbose("length of coefficients for prime %s: %s"%(l,len(F.padded_list()[0::p])))
+    verbose("the old and new of coefficients for prime %s: %s, %s"%(l,len(F.padded_list()),len(F.padded_list()[0::p])))
     return F.padded_list()[0::p]
 
 
@@ -147,8 +155,8 @@ def norm(f,p,k,deg,check):
     ASSUMPTION: f has integer coefficients
     """
     prec_big = f.prec()
-    prec_med = prec_big//p
-    bigN = coef_bound(p,k,prec_med,deg)
+    prec_med = (prec_big-pad)//p
+    bigN = coef_bound(f,p,k,deg)
     if check:
         bigN = floor(bigN^(1.2))
     phip = cyclotomic_polynomial(p)
@@ -202,7 +210,7 @@ def weight_index(N,k):
         return None
 
 
-def Norm_comp(f,N,weight,deg):
+def Norm_comp(f,N,weight,deg,check =False):
     """
     Given a modular form of weight k and level N(N = square free),
     using multimodular algorithm(computing mod primes, and use CRT to lift back)
@@ -212,22 +220,24 @@ def Norm_comp(f,N,weight,deg):
     v = N.prime_divisors()
     tmp = f
     for p in v:
-        tmp = Norm(tmp,p,weight,deg)
+        tmp = Norm(tmp,p,weight,deg,check)
         weight = weight*(p+1)
     return tmp
 
 
+pad = 10 # the padding to make sure we have computed enough
+
 # to-do: return to Norm to deal with the issue of precision information
 
 
-def zero_poly_comp(f,N,k,description,deg =1):
+def zero_poly_comp(f,N,k,description,deg =1,check = False):
     """
     zero-polynomial for composite square free level
 
     EXAMPLE::
-    sage:E = EllipticCurve('446d1')
+    sage:E = EllipticCurve('26a1')
     sage:f = E.modular_form()
-    sage:F = zero_poly_comp(f,446,2,'critical'); F.factor()
+    sage:F = zero_poly_comp(f,26,2,'critical'); F.factor()
     (x-1728)^2
     """
     if not N.is_squarefree():
@@ -236,10 +246,10 @@ def zero_poly_comp(f,N,k,description,deg =1):
     prec_high = sigma(N,1)*prec_med
     verbose('prec_high = %s'%prec_high)
     try:
-        f = f.qexp(prec_high+1)
+        f = f.qexp(prec_high+pad+1)
     except:
         pass
-    Nf = Norm_comp(f,N,k,deg)
+    Nf = Norm_comp(f,N,k,deg,check)
     num_terms = prec_low
     verbose('valuation of Nf = %s'%Nf.valuation())
     verbose('done computing the norm')

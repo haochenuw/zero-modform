@@ -1,6 +1,19 @@
 ### find the exact z ###
 ### dependence: depend on exceptional-points.sage to compute the exceptional points.
 ### implicitly, depend on zero-modform.sage to provide the zero polynomial Fj.
+
+
+### added 7/12: in fact if the polynomial in question is CM then we don't need to mess with it.
+# so it suffices to get a list of CM polynomials that are possible and forget about the exceptional points.
+# what kind of CM is possible? Is there an upper bound on discriminant?
+
+# or we could just...? formula for the discriminant of the whole thing? Probably not, but I could bound the degree, so...?
+
+
+
+
+
+
 from itertools import *
 from mpmath import *
 import numpy as np
@@ -85,7 +98,6 @@ def taus(jlist,N,prec):
     """
 
 
-#to-do: factor the above code, since it's not correct
 
 
 def from_tau_to_z(taulist,jlist,N,eps,prec):
@@ -160,7 +172,7 @@ def adjust(lst):
 
 
 
-def exact_zeros(Fj,N,prec,eps):
+def exact_points(F,N,prec,eps=1):
     """
     return an approximation in complex upper half plane representatives
     of a well-defined set of points on Y0(N) , where Fj is the polynomial
@@ -171,34 +183,93 @@ def exact_zeros(Fj,N,prec,eps):
     """
     try:
         S.<x> = QQ[]
-        Fj = S(Fj)
-    except: pass
-    if not Fj.is_irreducible():
-        raise NotImplementedError('Fj must be irreducible.')
-    if not is_prime(N):
-        raise NotImplementedError('N must be a prime.')
+        F = S(F)
+    except:
+        pass
+    if not F.is_irreducible():
+        raise NotImplementedError('F must be irreducible.')
     C = ComplexField(prec)
     R.<x> = C[]
-    jlist = R(Fj).roots(multiplicities = False)
-    exceptional_jlist = [j for j,f in exc_j(N,prec)]
-    j0 = jlist[0]
-    i = closest(j0,exceptional_jlist)
-    if abs(exceptional_jlist[i][0] - j0) < eps:
-        exceptional = True
-        form = exceptional_jlist[i][0]
-        a,b,c = form[0],form[1],form[2]
-        d = gcd(gcd(a,b),c)
-        D = form.discriminant() // d^2
-        quadforms =  BinaryQF_reduced_representatives(D,primitive_only = True) # find all reps primitive forms of that discriminant
-        zs = []
-        for f in quadforms:
-            pass
-            # do something: mainly just adjust
-    else:
-        exceptional = False
-        taulist = taus(Fj,N,prec,jlist)
-        zs = from_tau_to_z(taulist,jlist,N,prec,eps)
+    jlist = R(F).roots(multiplicities = False)
+    #exceptional_jlist = [j for j,f in exc_j(N,prec)]
+    #j0 = jlist[0]
+    #i = closest(j0,exceptional_jlist)
+    #if abs(exceptional_jlist[i][0] - j0) < eps:
+    #    exceptional = True
+    #    form = exceptional_jlist[i][0]
+    #    a,b,c = form[0],form[1],form[2]
+     #   d = gcd(gcd(a,b),c)
+    #  D = form.discriminant() // d^2
+     #   quadforms =  BinaryQF_reduced_representatives(D,primitive_only = True) # find all reps primitive forms of that discriminant
+    #  zs = []
+     #   for f in quadforms:
+    #      pass
+     #        do something: mainly just adjust
+    taulist = taus(Fj,N,prec,jlist)
+    zs = from_tau_to_z(taulist,jlist,N,prec,eps)
     return zs
+
+
+from sage.schemes.elliptic_curves.heegner import * # need ringclassfield
+
+### checking if a polynomial is CM, not tested yet.
+def is_cm(f):
+    """
+    check if f is a CM polynomial, i.e. if f = H_O(x) for some...
+    INPUT:
+        f -- an irreducible polynomial in QQ[x]
+    """
+    R.<x> = QQ[]
+    try:
+        f = R(f)
+    except:
+        raise ValueError('f must be an intege polynomial')
+    df = f.degree()
+    if not f.is_irreducible():
+        raise NotImplementedError
+    D = ZZ(f.disc())
+    v = sorted(D.prime_factors())
+    verbose('prime factors of discriminant: %s'%str(v))
+    possibleList = []
+    for n in product_combinations(v): # since the ramified primes are all factors of D
+        K.<a> = QuadraticField(-n)
+        dK = K.discriminant()
+        verbose('dK = %s'%dK)
+        cond = 1
+        while True:
+            Kc = RingClassField(dK,cond)
+            deg = Kc.degree_over_K()
+            if deg < df:
+                cond += 1
+            elif deg == df:
+                possibleList.append((dK,cond))
+                break
+            else: # deg > df, the discriminant dK is impossible here.
+                break
+    if len(possibleList) == 0:
+        return False
+    else:
+        for dK,c in possibleList:
+            disc = dK*cond^2
+            h_disc = hilbert_class_polynomial(disc)
+            if h_disc == f:
+                return True, disc
+        return False
+
+
+import itertools as it
+
+def product_combinations(lst):
+    n = len(lst)
+    pick = list(it.product(range(2), repeat=n))
+    result = []
+    for p in pick:
+        p = zip(lst,list(p))
+        result.append(prod([a**e for a, e in p]))
+    return result
+
+
+
 
 
 
