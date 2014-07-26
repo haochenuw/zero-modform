@@ -73,7 +73,7 @@ def precs(p,k):
     g = Gamma0(p).genus()
     return (k*(g-1)+ 1 , k*g+1+1 , p*(k*g+1 + 1))
 
-def coef_bound(f,p,k,deg,new= True):
+def coef_bound(f,p,k,deg,new = True):
     """
     bound the largest possible coefficient of
     a product of p modular forms with degree prec, where if f = \sum a_nq^n
@@ -143,7 +143,7 @@ def norm_mod_l(f,p,z):
         F = F * tmp
         F = F.truncate(prec_big)
     verbose("The multiplication for the prime %s is performed within %s seconds"%(l, cputime(t)))
-    verbose("the old and new of coefficients for prime %s: %s, %s"%(l,len(F.padded_list()),len(F.padded_list()[0::p])))
+    #verbose("the old and new of coefficients for prime %s: %s, %s"%(l,len(F.padded_list()),len(F.padded_list()[0::p])))
     return F.padded_list()[0::p]
 
 
