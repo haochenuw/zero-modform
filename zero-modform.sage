@@ -45,6 +45,67 @@ def zero_poly(f,p,k,description,deg = 1,check =False):
     verbose('zero polynomial computed and saved.')
     return F
 
+
+# the following is a simple version that computes the zero poly modulo p,
+# where p is the level.
+
+def zero_poly_modp(f,p,k,description):
+    v = precs(p,k)
+    try:
+        f = f.qexp(v[1]+1) # added one since the way qexp works.
+    except:
+        pass
+    fmodp = f.change_ring(GF(p))
+    verbose('fmodp computed')
+    Nfmodp = normalize(fmodp^2)
+    verbose('Nf = %s'%str(Nfmodp[:10]))
+    wf = weight_factor(p,k)
+    #verbose('wf has valuation %s'%(wf.valuation()))
+    wfmodp = wf.change_ring(GF(p))
+    #verbose('wfmop = %s'%str(wfmodp))
+    Ffmodp = Nfmodp/wfmodp
+    verbose('Ffmodp computed = %s'%Ffmodp)
+    # In this case we don't need to compute the norm, since we have Nf = f^2(mod p)
+    verbose('valuation of Ffmodp is %s'%Ffmodp.valuation())
+    val = -Ffmodp.valuation()
+    q = Ffmodp.parent().gen()
+    shifted = GF(p)[[q]](Ffmodp*(q**val))
+    L = shifted.padded_list()
+    L = L[:val+1]
+
+    #L = Ffmodp.truncate_laurentseries(1).coefficients()
+    verbose("L = %s"%str(L))
+    alist = []
+    prec_low = precs(p,k)[0]
+    verbose('prec_low =  %s'%prec_low)
+    verbose('length of coefficients is %s'%len(L))
+    assert len(L) == prec_low
+    # computing the j-invariant
+    E4 = eisenstein_series_qexp(4, prec_low+1)
+    delta = delta_qexp(prec_low+1)
+    j_invmodp = (normalize(E4**3)/delta).change_ring(GF(p))
+    jinvs = [j_invmodp**0,j_invmodp]
+    while len(jinvs) < prec_low:
+        a =  jinvs[-1]
+        jinvs.append(a*j_invmodp)
+    verbose('j-invariants modulo p computed')
+    assert len(jinvs) == prec_low
+    for i in range(prec_low):
+        d = prec_low-1-i
+        fd = get_principal_part(jinvs[d],prec_low,modp = True)
+        verbose('d, fd = %s, %s'%(d,fd))
+        verbose('i, fd[i] = %s, %s'%(i,fd[i]))
+        ad = L[i]/fd[i]
+        alist.append(ad)
+        L = [L[j]-ad*fd[j] for j in range(prec_low)]
+    print 'L = ', L
+    T.<x> = GF(p)[]
+    F = T(alist[::-1])
+    save(F, os.path.join(os.environ['HOME'],'critical-point','zero-modform','F%s-%s-%s'%(p,k,description)))
+    verbose('zero polynomial computed and saved.')
+    return F
+
+
 def normalize(g):
     return g/g.padded_list()[g.valuation()]
 
@@ -107,13 +168,20 @@ def mod1_primes(p,N):
             prod *= a
     return result
 
-def get_principal_part(f,n):
+def get_principal_part(f,n,modp = False):
     """
     returns the principal part + constant part of the
     coefficients of a Laurent series f
     if the length l <n, put n-l zeros in there.
     """
-    s = f.truncate_laurentseries(1).coefficients()
+    if modp:
+        q = f.parent().gen()
+        GF = f.base_ring()
+        val = -f.valuation()
+        L = GF[[q]](f*q**val).padded_list()
+        s = L[:val+1]
+    else:
+        s = f.truncate_laurentseries(1).coefficients()
     return  [0]*(n-len(s)) + s
 
 

@@ -47,19 +47,15 @@ def hyp(z,prec):
     return C(I)*(C(tau.real)+C(tau.imag)*I)
 
 
-def taus(jlist,N,prec):
+def taus(jlist,prec):
     """
     return taulist such that j( taulist[i] ) = jlist[i]
     """
     t = cputime()
-    G = Gamma0(N)
-    cosreps = list(G.coset_reps())
     C = ComplexField(prec)
     R.<x> = C[]
     #jlist = R(Fj).roots(multiplicities = False)
     taulist = []
-    eps = 1
-    verbose('eps = %s '%eps)
     t1 = cputime()
     for j in jlist:
         y = R(256*(1-x)^3 - j*x^2).roots(multiplicities = False)[0]
@@ -67,9 +63,6 @@ def taus(jlist,N,prec):
         tau = hyp(lam,prec)
         taulist.append(tau)
     verbose('2nd step done, found raw taus, took %s seconds'%cputime(t1))
-    zlist = []
-    count = 0
-    num = len(taulist)
     return taulist
     """
     # use field smaller precision since gp.ellj is slow
@@ -191,22 +184,10 @@ def exact_points(F,N,prec,eps=1):
     C = ComplexField(prec)
     R.<x> = C[]
     jlist = R(F).roots(multiplicities = False)
-    #exceptional_jlist = [j for j,f in exc_j(N,prec)]
-    #j0 = jlist[0]
-    #i = closest(j0,exceptional_jlist)
-    #if abs(exceptional_jlist[i][0] - j0) < eps:
-    #    exceptional = True
-    #    form = exceptional_jlist[i][0]
-    #    a,b,c = form[0],form[1],form[2]
-     #   d = gcd(gcd(a,b),c)
-    #  D = form.discriminant() // d^2
-     #   quadforms =  BinaryQF_reduced_representatives(D,primitive_only = True) # find all reps primitive forms of that discriminant
-    #  zs = []
-     #   for f in quadforms:
-    #      pass
-     #        do something: mainly just adjust
-    taulist = taus(Fj,N,prec,jlist)
-    zs = from_tau_to_z(taulist,jlist,N,prec,eps)
+    verbose('j invariants computed')
+    taulist = taus(jlist,prec)
+    verbose('complex candidate taus computed')
+    zs = from_tau_to_z(taulist,jlist,N,eps,prec)
     return zs
 
 
@@ -268,8 +249,59 @@ def product_combinations(lst):
         result.append(prod([a**e for a, e in p]))
     return result
 
+def gamma0n_good_rep(z,N):
+    """
+    z -- a complex number representing a point [z] on X_0(N)
 
+    OUTPUT:
+        (z',sign) such that z' \in H, sign = +-1, and [z'] = z
+        or if sign = -1, [z'] = [wN(z)]
+    """
+    C = z.parent()
+    prec = C.prec()
+    R = RealField(prec)
+    half = R(1/2)
+    const = C(1/sqrt(N))
+    sign = 1
+    N  = C(N)
+    while True:
+        if abs(z.real_part()) < half:
+            if abs(z) > const:
+                return (z,sign)
+            else:
+                z = -1/(N*z)
+                sign = -sign
+        else:
+            re = z.real_part()
+            z = z - C(floor(re))
+            if abs(z.real_part()) > half:
+                z = z - 1
+    return (z,sign)
 
+def x_poly_prec(x,deg,prec,name='t'):
+    #x_reduced_prec = x.n(prec=floor(prec*0.8))
+    poly_factorization = ZZ[name](x.algdep(deg)).factor()
+    verbose('polynomial factorization is %s'%poly_factorization)
+    # Test that full precision x is a root of one of the factors
+    # to precision greater than self._prec*0.9
+    found_correct_factor=False
+    RF = RealField(prec)
+    n = len(poly_factorization)-1
+    while n>=0 and found_correct_factor==False:
+        poly = poly_factorization[n][0]
+        newprec = floor(-log(abs(poly(x)))/log(RF(2)))
+        verbose('real precision is: %s'%newprec)
+        if newprec >= floor(prec*0.9):
+            result = poly
+            found_correct_factor=True
+            n=0
+        n -= 1
+    # Raise error if we didn't find a polynomial factor for which
+    # x is a root
+    if found_correct_factor==False:
+        s = "Defining polynomial does not stabilize. Try using greater precision."
+        raise FloatingPointError(s)
+    return result
 
 
 
