@@ -8,7 +8,7 @@
 # reference: http://ac.els-cdn.com/S1071579701903193/1-s2.0-S1071579701903193-main.pdf?_tid=3d4e38b4-fbbf-11e3-b320-00000aacb362&acdnat=1403628633_ec0267dd80a8d17066269839dca8817b
 
 
-# local reference: singularities-of-modular-curve.pdf
+# local reference(on my macbook): singularities-of-modular-curve.pdf
 
 load('atkin-lehner.sage')
 
