@@ -1,7 +1,6 @@
 from sage.matrix.matrix_integer_dense import _lift_crt
 
 
-
 def zero_poly(f,p,k,description,deg = 1,check =False):
     """
     Input: f -- the power series expansion of a modular form
@@ -229,6 +228,7 @@ def norm(f,p,k,deg,check):
         z = v[0]
         Nfbarl = norm_mod_l(f,p,z)
         Matlist.append(Matrix(GF(l),1,prec_med,Nfbarl[:prec_med]))
+        print 'type of modn list',type(Matlist[-1])
         count += 1
         verbose('computation done for the %s-th prime'%(count))
     M = _lift_crt(Matrix(ZZ, 1, prec_med), Matlist)
