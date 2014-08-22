@@ -55,17 +55,13 @@ def zero_poly_modp(f,p,k,description):
     except:
         pass
     fmodp = f.change_ring(GF(p))
-    verbose('fmodp computed')
     Nfmodp = normalize(fmodp^2)
-    verbose('Nf = %s'%str(Nfmodp[:10]))
     wf = weight_factor(p,k)
     #verbose('wf has valuation %s'%(wf.valuation()))
     wfmodp = wf.change_ring(GF(p))
     #verbose('wfmop = %s'%str(wfmodp))
     Ffmodp = Nfmodp/wfmodp
-    verbose('Ffmodp computed = %s'%Ffmodp)
     # In this case we don't need to compute the norm, since we have Nf = f^2(mod p)
-    verbose('valuation of Ffmodp is %s'%Ffmodp.valuation())
     val = -Ffmodp.valuation()
     q = Ffmodp.parent().gen()
     shifted = GF(p)[[q]](Ffmodp*(q**val))
@@ -73,11 +69,8 @@ def zero_poly_modp(f,p,k,description):
     L = L[:val+1]
 
     #L = Ffmodp.truncate_laurentseries(1).coefficients()
-    verbose("L = %s"%str(L))
     alist = []
     prec_low = precs(p,k)[0]
-    verbose('prec_low =  %s'%prec_low)
-    verbose('length of coefficients is %s'%len(L))
     assert len(L) == prec_low
     # computing the j-invariant
     E4 = eisenstein_series_qexp(4, prec_low+1)
@@ -87,17 +80,13 @@ def zero_poly_modp(f,p,k,description):
     while len(jinvs) < prec_low:
         a =  jinvs[-1]
         jinvs.append(a*j_invmodp)
-    verbose('j-invariants modulo p computed')
     assert len(jinvs) == prec_low
     for i in range(prec_low):
         d = prec_low-1-i
         fd = get_principal_part(jinvs[d],prec_low,modp = True)
-        verbose('d, fd = %s, %s'%(d,fd))
-        verbose('i, fd[i] = %s, %s'%(i,fd[i]))
         ad = L[i]/fd[i]
         alist.append(ad)
         L = [L[j]-ad*fd[j] for j in range(prec_low)]
-    print 'L = ', L
     T.<x> = GF(p)[]
     F = T(alist[::-1])
     save(F, os.path.join(os.environ['HOME'],'critical-point','zero-modform','F%s-%s-%s'%(p,k,description)))
