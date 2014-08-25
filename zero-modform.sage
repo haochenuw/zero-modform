@@ -174,7 +174,7 @@ def get_principal_part(f,n,modp = False):
 
 
 
-def norm_mod_l(f,p,z):
+def norm_mod_l(f,p,phip,l):
     """
     Take a modular form f of level p with integer coefficents,
     this function computes \prod_i (f(zeta_p^i q^1/p))
@@ -183,8 +183,13 @@ def norm_mod_l(f,p,z):
     Input: f -- a modular form with integer coefficients
     z -- a root of \Phi_p(mod l) in GF(l)
     """
+    phipl = phip.change_ring(GF(l))
+    v = phipl.roots(multiplicities = False)
+    v.sort()
+    z = v[0]
 
     prec_big = f.prec()
+    prec_med = (prec_big-pad)//p
     verbose("Number of multiplications to perform on powerseries with precision %s : %s"%(prec_big,p))
     L = f.padded_list() # raised everything to pth power q = q'^p
     Fl = z.parent()
@@ -200,8 +205,17 @@ def norm_mod_l(f,p,z):
         F = F.truncate(prec_big)
     verbose("The multiplication for the prime %s is performed within %s seconds"%(l, cputime(t)))
     #verbose("the old and new of coefficients for prime %s: %s, %s"%(l,len(F.padded_list()),len(F.padded_list()[0::p])))
-    return F.padded_list()[0::p]
+    L = F.padded_list()[0::p]
+    return Matrix(GF(l),1,prec_med,L[:prec_med])
 
+
+@parallel(ncpus = 12)
+def _norm(f,p,phip,llist,a):
+    Matlist = []
+    for l in llist:
+        if Mod(l,21) == a:
+            Matlist.append(norm_mod_l(f,p,phip,l))
+    return Matlist
 
 def norm(f,p,k,deg,check):
     """
@@ -210,6 +224,9 @@ def norm(f,p,k,deg,check):
     to compute the norm of a modular form f of level p
     ASSUMPTION: f has integer coefficients
     """
+
+    Matlist = []
+    count = 0
     prec_big = f.prec()
     prec_med = (prec_big-pad)//p
     bigN = coef_bound(f,p,k,deg)
@@ -219,18 +236,11 @@ def norm(f,p,k,deg,check):
     verbose('the bound on the size of coefficents of the norm is %s'%bigN)
     llist = mod1_primes(p,2*bigN) #multiply by 2 since we are inside the interval [-bigN, bigN]
     verbose('we are using %s primes'%len(llist))
-    Matlist = []
-    count = 0
-    for l in llist:
-        phipl = phip.change_ring(GF(l))
-        v = phipl.roots(multiplicities = False)
-        v.sort()
-        z = v[0]
-        Nfbarl = norm_mod_l(f,p,z)
-        Matlist.append(Matrix(GF(l),1,prec_med,Nfbarl[:prec_med]))
-        print 'type of modn list',type(Matlist[-1])
-        count += 1
-        verbose('computation done for the %s-th prime'%(count))
+
+    inputs = [(f,p,phip,llist,a) for a in range(21) if gcd(a,21) == 1]
+    for output in _norm(inputs):
+        Matlist += output[1]
+
     M = _lift_crt(Matrix(ZZ, 1, prec_med), Matlist)
     R.<q> = QQ[[]]
     return R(M.list()).add_bigoh(prec_med)
