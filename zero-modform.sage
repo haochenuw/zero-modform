@@ -1,7 +1,7 @@
 from sage.matrix.matrix_integer_dense import _lift_crt
 
 
-def zero_poly(f,p,k,description,deg = 1,check =False):
+def zero_poly(f,p,k,description,deg = 1,check =False,proof = True):
     """
     Input: f -- the power series expansion of a modular form
            k -- the weight of f
@@ -12,7 +12,7 @@ def zero_poly(f,p,k,description,deg = 1,check =False):
         f = f.qexp(v[2]+10) # added one since the way qexp works.
     except:
         pass
-    Nf = Norm(f,p,k,deg,check)
+    Nf = Norm(f,p,k,deg,check,proof)
     verbose('done computing the norm')
     Fq = normalize(Nf)/normalize(weight_factor(p,k))
     L = Fq.truncate_laurentseries(1).coefficients()
@@ -217,7 +217,7 @@ def _norm(f,p,phip,llist,a):
             Matlist.append(norm_mod_l(f,p,phip,l))
     return Matlist
 
-def norm(f,p,k,deg,check):
+def norm(f,p,k,deg,check,proof):
     """
     Given a modular form of weight k and level p.
     sing multimodular algorithm(computing mod primes, and use CRT to lift back)
@@ -229,25 +229,31 @@ def norm(f,p,k,deg,check):
     count = 0
     prec_big = f.prec()
     prec_med = (prec_big-pad)//p
-    bigN = coef_bound(f,p,k,deg)
+    bigN = coef_bound(f,p,k,deg,new)
     if check:
         bigN = floor(bigN^(1.2))
+    if not proof:
+        verbose('proof = False')
+        bigN = RealField(200)(sqrt(bigN)) # take its square root. Then the result could be double checked by mod p (?)
     phip = cyclotomic_polynomial(p)
     verbose('the bound on the size of coefficents of the norm is %s'%bigN)
     llist = mod1_primes(p,2*bigN) #multiply by 2 since we are inside the interval [-bigN, bigN]
     verbose('we are using %s primes'%len(llist))
+    verbose('the primes are %s'%str(llist))
 
     inputs = [(f,p,phip,llist,a) for a in range(21) if gcd(a,21) == 1]
     for output in _norm(inputs):
         Matlist += output[1]
 
+    # save the matrix list to a file
+    save(Matlist, os.path.join(os.environ['HOME'],'critical-point','debug','modlcoeffs%s'%p))
     M = _lift_crt(Matrix(ZZ, 1, prec_med), Matlist)
     R.<q> = QQ[[]]
     return R(M.list()).add_bigoh(prec_med)
 
-def Norm(f,p,k,deg,check = False):
+def Norm(f,p,k,deg,check = False,proof = True):
     R.<q> = QQ[[]]
-    nf = norm(f,p,k,deg,check)
+    nf = norm(f,p,k,deg,check,proof)
     prec_med = nf.prec()
     return R(nf*f.truncate(prec_med)).add_bigoh(prec_med)
 
