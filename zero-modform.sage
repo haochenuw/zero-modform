@@ -89,7 +89,7 @@ def zero_poly_modp(f,p,k,description):
         L = [L[j]-ad*fd[j] for j in range(prec_low)]
     T.<x> = GF(p)[]
     F = T(alist[::-1])
-    save(F, os.path.join(os.environ['HOME'],'critical-point','zero-modform','F%s-%s-%s'%(p,k,description)))
+    save(F, os.path.join(os.environ['HOME'],'critical-point','results','F%s-%s-%s'%(p,k,description)))
     verbose('zero polynomial computed and saved.')
     return F
 
