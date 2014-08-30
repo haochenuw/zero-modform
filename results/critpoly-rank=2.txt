@@ -8,6 +8,8 @@ Curve    Degree    Factorization(degree,multiplicity)
 655a        128        (128,1)
 707a        132        (132,1)
 664a        160       (160,1)
+997b        162        (1,2),(160,1)
+997c        162        (162,1)
 
 
 
