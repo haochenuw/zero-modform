@@ -120,7 +120,7 @@ def poly_relation(r,u,degr,degu):
         # solve x,y such that 228x + 143y = d
         a,b  = solve_dioph(degu,degr,abs(d))
         remainder -= c*r[a]*u[b]
-        M[a][b] =  c
+        M[a][b] =  -c
         print 'a,b,c,d = ', a,b,c,d
 
 
