@@ -1,4 +1,8 @@
+from sage.structure.sage_object import SageObject
 
+##################################################################
+#             Hao Chen (chenh123@uw.edu)                         #
+##################################################################
 
 
 #################################
@@ -450,6 +454,51 @@ class atkin_lehner(object):
 ######################################
 
 
+class AtkinLehnerFixedPoint():
+    """
+    The class of atkin-lehner fixed point
+    """
+    def __init__(self, N, q, D, z):
+        """
+        INPUT:
+
+            - `N` -- (positive integer) the level
+
+            - `q` -- positive integer such that (q,N/q) = 1
+
+            - `D` -- negative integer, the discriminant of the corresponding CM point. Either -4q or -q.
+
+            - `z` -- an imaginary quadratic point in the upper half plane
+
+        """
+        self._N = N
+        self._q = q
+        self._D = D
+        self._z = z
+
+    def z(self):
+        return self._z
+
+    def q(self):
+        return self._q
+
+    def disc(self):
+        return self._D
+
+    def N(self):
+        return self._N
+
+    def _repr_(self):
+        q = self.q()
+        N = self.N()
+        alpha = 'sqrt(-'+str(q) + ')'
+
+        tau = repr(self.z()).replace('alpha',alpha)
+        return 'atkin-lehner fixed point  %s  of w%s on X0(%s)'%(tau,q,N)
+
+    def str(self):
+        return self._repr_()
+
 def fixed_points_w(q,N):
     """
     returns all fixed points of w_q on Y0(N)
@@ -462,7 +511,6 @@ def fixed_points_w(q,N):
         return []
     else:
         result += find_points(xlist,q,N,2)
-        result.append('|')
         if q == 2:
             result += find_points_2(N)
         elif q == 3:
@@ -501,11 +549,12 @@ def find_points(xlist,q,N,cond):
     result = []
     d =  ZZ(N/q)
     K.<alpha> = QuadraticField(-q);
+    """
     if cond == 2:
         print ' alpha  := sqrt(-'+str(q) + ')'
     elif cond == 1:
         print ' alpha  := (sqrt(-'+str(q) + ') + 1)/2'
-
+    """
 
     A = alpha.matrix()
     for f in formlist:
@@ -555,7 +604,7 @@ def find_points(xlist,q,N,cond):
                 #print a,b,c1,d1
                 point = -(a1+b1*tau)/(c1+d1*tau)
                 #print 'point ', point
-                result.append(point)
+                result.append(AtkinLehnerFixedPoint(N,q,-q*cond**2,point))
     return result
 
 
