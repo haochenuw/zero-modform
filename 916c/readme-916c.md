@@ -14,8 +14,10 @@ also do a multimodular algorithm.)
 ### We use the code in 916c-new.sage to cancel the poles until we get a holomorphic function which must be a constant.
 
 ###Then we define F(x) = p(0,x). The zeros of F(x) will be the u-values at the zeros of r. It turns out that
-        F(x)  = x^2h(x), h irreducible over $\mathbb{Q}[x]$, deg(h) = 228
-The $x^2$ term is 'cause the two shared zeros of r and u at the cusps [1/2] and [1/458].
+        F(x)  = x^2(x-916)(x+4)(x^2 - 28x + 3664)^2(x^2 + 116x + 3664)^2(h(x)), h irreducible over $\mathbb{Q}[x]$, deg(h) = 216
+The $x^2$ term is 'cause the two shared zeros of r and u at the cusps [1/2] and [1/458]. The (x-916)(x+4) are the u-value at two other cusps. 
 
-###Hence $h(x) =  \prod (x - u(z_i))$ where z_i are the zeros of the modular form $f_916c1$.
+The two quadratic factors correspoding to a CM j-value of 54000. (In other words, the critical j-polynomial has a
+factor of (x-54000)^8.
 
+###Therefore we deduce that E_crit(Q) is torsion for E = 916c1.
