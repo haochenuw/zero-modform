@@ -15,7 +15,7 @@
 
 
 from itertools import *
-from mpmath import *
+from mpmath import mp, hyp2f1
 import numpy as np
 load('exceptional-points.sage')
 
@@ -94,6 +94,16 @@ def taus(jlist,prec):
 
 
 def from_tau_to_z(taulist,jlist,N,eps,prec):
+    """
+    given a list of taus, for each tau find g such that j(g(tau)) and j(Ngtau) are both in jlist
+    by 'in jlist' I mean epsilon-close to an element in jlist.
+
+
+    Output:
+
+    zlist -- a list of z's : complex zeros.
+    pairs -- a pairing data of integers from 0 to len(jlist)-1.
+    """
     verbose('eps = %s'%eps)
     C = ComplexField(prec)
     pari.set_real_precision(prec)
@@ -102,7 +112,11 @@ def from_tau_to_z(taulist,jlist,N,eps,prec):
     n = len(taulist)
     verbose('n = %s'%n)
     used = []
-    zlist = []
+    result = []
+    pairs = []
+
+
+
     for i in range(n):
         tau = taulist[i]
         verbose('the %s th tau is equal to %s'%(i+1,CDF(tau)))
@@ -119,13 +133,14 @@ def from_tau_to_z(taulist,jlist,N,eps,prec):
         mindist = abs(cands[j]- jlist[k])
         verbose('the minimal difference between the two list element is %s'%mindist)
         if mindist < eps:
+            pairs.append((i,k))
             used.append(k)
             g = cosreps[j]
-            zlist.append(C(g.acton(tau)))
+            result.append(C(g.acton(tau)))
             verbose('the indexes of used j: %s'%str(used))
         else:
             raise RuntimeError('not able to identify the %s th point '%(i+1))
-    return zlist
+    return result, pairs
 
 
 def from_tau_to_z_onepoint(tau,jlist,N,eps,used,prec):
@@ -303,6 +318,15 @@ def x_poly_prec(x,deg,prec,name='t'):
         raise FloatingPointError(s)
     return result
 
+
+def map_to_curve(E,zlist):
+    """
+    return the complex point on the curve E such that
+    P = \sum_{z in zlist} phi(z)
+    """
+    phi = E.modular_parametrization()
+    Pcomplex = sum([phi.map_to_complex_numbers(z) for z in zlist])
+    return E.elliptic_exponential(Pcomplex)
 
 
 
