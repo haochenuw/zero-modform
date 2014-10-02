@@ -113,7 +113,7 @@ def poly_relation(r,u,degr,degu,description):
         else:
             # solve x,y such that 228x + 143y = d
             a,b  = solve_dioph(degu,degr,abs(d))
-            print 'a,b,c,d = ', a,b,c,d
+            verbose('a,b,c,d = %s,%s,%s,%s'%(a,b,c,d))
             remainder -= (c*rs[a]*us[b]).truncate(1)
             M[a][b] =  -c
 
@@ -133,7 +133,7 @@ def _polyrel(r,u,degr,degu,remainder, Max):
                 raise ValueError('got positive valuation, please debug')
             # solve x,y such that 228x + 143y = d
             a,b  = solve_dioph(degu,degr,abs(d))
-            print a,b,-c,d
+            verbose('a,b,c,d = %s,%s,%s,%s'%(a,b,-c,d))
             remainder -= (c*r[a]*u[b]).truncate(1)
     return remainder
 
