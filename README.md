@@ -3,7 +3,7 @@ zero-modform
 
 Description of the code:
 
-zero-modform.sage: Computes j-polynomial of atkin-lehner eigenform of square free conductor N. (*Norm* method)
+zero-modform.sage: Computes j-polynomial of atkin-lehner eigenform of square free conductor N. (**Norm** method)
 
 exact-point.sage: Take as input the j-polynomial of a modular form, computes upper half plane representatives [z] for its zeros.
 
@@ -15,9 +15,9 @@ for E = 916c.
 
 atkin-lehner.sage: Computes set of fixed points of any atkin_lehner operator $w_d$ on $X_0(N)$.
 
-multimod.sage: Computes an u-polynomial of atkin-lehenr eigenforms of any conductor, with a chosen u satisfying some integrality assumptions( which u = j always satisfy).(*Multimodular* method). N does not have to be square free. 
+multimod.sage: Computes an u-polynomial of atkin-lehenr eigenforms of any conductor, with a chosen u satisfying some integrality assumptions( which u = j always satisfy).(**Multimodular** method). N does not have to be square free. 
 
-polyrel-ZZ.sage: Computes u-polynomial of atkin-lehner eigenforms with r and u having concentrated poles. N does not have to be square free. (*Yang-product* method)
+polyrel-ZZ.sage: Computes u-polynomial of atkin-lehner eigenforms with r and u having concentrated poles. N does not have to be square free. (**Yang-product** method)
 
 (to-do: add the code for computing 664a1 and 944e1)
 
