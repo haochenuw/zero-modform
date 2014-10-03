@@ -1,4 +1,8 @@
-
+def normalize(g):
+    """
+    setting the first nonzero coefficient to be 1
+    """
+    return g/g.padded_list()[g.valuation()]
 
 def q_exp_eta(etaElement,prec):
     R,q = PowerSeriesRing(QQ, 'q').objgen()
