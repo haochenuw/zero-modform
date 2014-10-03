@@ -15,7 +15,7 @@ for E = 916c.
 
 atkin-lehner.sage: Computes set of fixed points of any atkin_lehner operator $w_d$ on $X_0(N)$.
 
-multimod.sage: Computes an u-polynomial of atkin-lehenr eigenforms of any conductor, with a chosen u satisfying some integrality assumptions( which u = j always satisfy).(**Multimodular** method). N does not have to be square free. 
+multimod.sage: Computes an u-polynomial of atkin-lehner eigenforms of any conductor, with a chosen u satisfying some integrality assumptions( which u = j always satisfy).(**Multimodular** method). N does not have to be square free.
 
 polyrel-ZZ.sage: Computes u-polynomial of atkin-lehner eigenforms with r and u having concentrated poles. N does not have to be square free. (**Yang-product** method)
 
@@ -23,11 +23,10 @@ polyrel-ZZ.sage: Computes u-polynomial of atkin-lehner eigenforms with r and u h
 
 results/:
 
-critpolys.json: contains an incomplete list critical polynomials of elliptic curves with conductor <1000. (Now it contains
+critpolys.json: contains an incomplete list critical polynomials of elliptic curves with conductor \<1000. (Now it contains
 all rank 2 curves of conductor <= 1000)
 
-crit-poly.txt: contains all critical polynomials of elliptic curves with prime conductor p <1000 such that
-genus(X_0(p)) > 1.
+crit-poly.txt: contains all critical polynomials of elliptic curves with prime conductor p \< 1000 such that genus(X_0(p)) > 1.
 
 389-zero-pol.txt: contains zero polynomials for traces of the 5 newforms of weight 2 and level 389.
 
