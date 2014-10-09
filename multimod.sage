@@ -201,7 +201,7 @@ def degree(l,dega,degb):
 # for chow-heegner purposes, or for any occasion where the zeros of a
 # function is not known to be integral under the other function.
 
-def relation(r,u,degr,degu,padding,description):
+def relation_zz(r,u,degr,degu,padding,description):
     matrix = []
     num_terms = (degu+1)*(degr+1)
     prec = num_terms + padding
@@ -253,7 +253,8 @@ def relation(r,u,degr,degu,padding,description):
 
 
 
-def zeropoly_modp(p,degr,degu,r,u,padding):
+def zeropoly_modp(p,degr,degu,r,u,padding,firstTime = True):
+
     try:
         Mp = load(os.path.join(os.environ['HOME'],'poly-relation','results','Mp-%s-%s'%(E.label(),p)))
         verbose('already computed.')
@@ -335,8 +336,9 @@ def zeropoly_modp(p,degr,degu,r,u,padding):
         raise ValueError('kernel is greater than one dimensional for the prime p = %s, please debug'%p)
 
 
-    k = K[0][:degu+1]
-
+    #k = K[0][:degu+1]
+    k = K[0]
+    
     kmat = Matrix(k[0].parent(),1,len(k),list(k))
     save(kmat, os.path.join(os.environ['HOME'],'poly-relation','results','Mp-%s-%s'%(E.label(),p)))
     verbose('the whole computation for p = %stook %s seconds'%(p,cputime(t)))
