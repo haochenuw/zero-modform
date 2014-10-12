@@ -17,7 +17,7 @@
 from itertools import *
 from mpmath import mp, hyp2f1
 import numpy as np
-load('exceptional-points.sage')
+#load('exceptional-points.sage')
 
 def twodargmin(lst1,lst2,used2):
     """
