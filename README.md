@@ -19,7 +19,9 @@ multimod.sage: Computes an u-polynomial of atkin-lehner eigenforms of any conduc
 
 polyrel-ZZ.sage: Computes u-polynomial of atkin-lehner eigenforms with r and u having concentrated poles. N does not have to be square free. (**Yang-product** method)
 
-(to-do: add the code for computing 664a1 and 944e1)
+recognize-hilbert.sage: Given an irreducible polynomial f(x) \in ZZ[x], determine if there exists a negative discriminant D
+such that $f = H_D(x)$. In the first case it finds such a $D$. 
+
 
 results/:
 
