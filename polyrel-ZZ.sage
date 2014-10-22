@@ -65,7 +65,7 @@ def r_series_twisted(E,prec):
 
     h4 = EtaProduct(4,{1:-8,4:8})
     h4inv = EtaProduct(4,{1:8,4:-8})
-    h4wN = sub(RL(q_exp(h4inv,prec)),N//4)/(4**4)
+    h4wN = sub(RL(q_exp_eta(h4inv,prec)),N//4)/(4**4)
     verbose('4')
     h = RL(h4wN*32 + 1) # div(h) = wN([(i+1)/2]) - 0
     h *= 8 # to make it integral
@@ -183,7 +183,7 @@ def atkin_lehner_eta(etaElement):
 
 
 
-def yang_product(N):
+def yang_product(N,positive = True):
     """
     Input: N — the level
     Output: an eta product u of level N whose divisor is
@@ -199,12 +199,16 @@ def yang_product(N):
 
     assert A.dimensions() == (number_of_etas,number_of_cusps)
 
+    if positive:
+        minorder = 1
+    else:
+        minorder = 0
     # we made it so that the first column always correspond to the cusp oo.
     for i in range(number_of_cusps):
 
         c = A.column(i)
         if i > 0:
-            p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),min = 1) # zero at all other cusps
+            p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),min = minorder) # zero at all other cusps
         else:
             p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),max = -1) # Infinity is a pole.
             p.set_objective(-sum([b[j]*c[j] for j in range(number_of_etas)])) # we want to minimize the degree

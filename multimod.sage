@@ -231,18 +231,25 @@ def relation_zz(r,u,degr,degu,padding,description):
     verbose('matrix made, took %s seconds'%cputime(t))
 
     verbose('computing the kernel...')
-    K = list(Mp.kernel().basis_matrix())
+    Ker = Mp.kernel()
+    verbose('got here')
+
+    K = list(Ker.basis_matrix())
+
+    verbose('dimension of kernel =  %s'%len(K))
     if len(K) == 0: # kernel must be one-dimensional.
         raise ValueError('got trivial kernel')
 
 
     elif len(K) > 1:
         verbose('the dimension of the kernel is: %s'%len(K))
-        save(K, os.path.join(os.environ['HOME'],'poly-relation','debug','kernel-%s'%description))
+        save(K,'debug/kernel-%s'%description)
+        #save(K, os.path.join(os.environ['HOME'],'poly-relation','debug','kernel-%s'%description))
         raise ValueError('kernel is greater than one dimensional, please debug')
 
     k = K[0]
     kmat = Matrix(k[0].parent(),1,len(k),list(k))
+    save(kmat,'results/kmat-%s'%description)
     save(list(kmat), os.path.join(os.environ['HOME'],'poly-relation','results','relation-%s'%description))
     verbose('the whole computation took %s seconds'%cputime(t))
     return kmat
@@ -338,7 +345,7 @@ def zeropoly_modp(p,degr,degu,r,u,padding,firstTime = True):
 
     #k = K[0][:degu+1]
     k = K[0]
-    
+
     kmat = Matrix(k[0].parent(),1,len(k),list(k))
     save(kmat, os.path.join(os.environ['HOME'],'poly-relation','results','Mp-%s-%s'%(E.label(),p)))
     verbose('the whole computation for p = %stook %s seconds'%(p,cputime(t)))

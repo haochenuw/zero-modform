@@ -53,7 +53,7 @@ def newton_polygon(v):
 def newton_polygon_helper(M,degr,degu):
     """
     get all the points for the newton polygon algorithm. Input is a polynomial in 2 variables.
-    The valuation here is ord_u. 
+    The valuation here is ord_u.
     """
     v = []
     for a in range(degr+1):
@@ -65,3 +65,55 @@ def newton_polygon_helper(M,degr,degu):
     w = [(a-c,d-b) for c,d in v]
     w.reverse()
     return w
+
+
+def sub(u,N):
+    prec = u.prec()
+    q = u.parent().gen()
+    return u.truncate(prec//N + 1)(q = q^N).add_bigoh(prec)
+
+def normalize(g):
+    """
+    setting the first nonzero coefficient to be 1
+    """
+    return g/g.padded_list()[g.valuation()]
+
+
+def get_poly(degr,degu,M):
+    R.<r,u> = PolynomialRing(QQ,2)
+    assert len(M) == (degr+1)*(degu+1)
+    F = 0
+    for a in range(degr+1):
+        for b in range(degu+1):
+            F += v[a*(degu+1)+b]*r^a*u^b
+
+    return F
+
+def u_series(prec):
+    """
+    return a q-expansion of u = (j-invariant)^{-1}
+    """
+    E4 = eisenstein_series_qexp(4, prec)
+    E6 = eisenstein_series_qexp(6, prec)
+    delta = delta_qexp(prec)
+    return delta/normalize(E4)**3
+
+
+def r_series(E,prec,twisted = True):
+
+    f = E.modular_form().qexp(prec)
+    N = E.conductor()
+    R = f.parent(); q = R.gen()
+    E4 = eisenstein_series_qexp(4, prec)
+    E6 = eisenstein_series_qexp(6, prec)
+    delta = delta_qexp(prec)
+    u = R(delta/normalize(E4)**3)  # u0 = 1/j
+    du = R(u.derivative())
+    power =1
+    if twisted:
+        u = sub(u,N).add_bigoh(prec)
+        du = sub(du,N).add_bigoh(prec)
+        power = N
+        R = R.laurent_series_ring()
+    r = R(-f*u/du)
+    return R(r/q**power)
