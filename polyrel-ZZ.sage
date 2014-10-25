@@ -1,3 +1,18 @@
+def cusp_diagram(N):
+    G = Gamma0(N)
+    v = list(G.cusps())
+    result = dict((a,0) for a in v)
+    for g in G.coset_reps():
+        try:
+            c = Cusp(g[0][0]/g[1][0])
+        except: # division by zero
+            c = Cusp(Infinity)
+        for a in v:
+            if c.is_gamma0_equiv(a,N):
+                result[a] +=1
+    return result
+
+
 def normalize(g):
     """
     setting the first nonzero coefficient to be 1
@@ -21,6 +36,65 @@ def sub(u,N):
     q = u.parent().gen()
     return u.truncate(prec//N + 1)(q = q^N).add_bigoh(prec)
 
+
+def normalize(g):
+    """
+    setting the first nonzero coefficient to be 1
+    """
+    return g/g.padded_list()[g.valuation()]
+
+
+def r4_series(E,prec):
+    """
+    when there's no elliptic point
+    Div(r) = Z_\omega + (cusps ~0 or 1/2 mod Gamma0(4)) - (pi_4^*(oo) - (cusps ~oo mod Gamma0(4)))
+    """
+
+    f = E.modular_form()
+    fq = f.qexp(prec)
+
+    E4 = eisenstein_series_qexp(4, prec)
+    E6 = eisenstein_series_qexp(6, prec)
+    delta = delta_qexp(prec)
+
+
+    N = E.conductor()
+    R = fq.parent(); q = R.gen()
+    u0 = R(delta/normalize(E4)**3)  # u0 = 1/j
+    du0 = R(u0.derivative())
+
+    verbose('1')
+
+    g = delta/sub(delta,2)
+    gnew =  normalize(((g-512)/(g+256)).power_series()) # level = 2 , div(gnew) = [i] - [rho]
+
+    verbose('2')
+    r = R(fq*u0*gnew/(du0*q))
+    RL = R.laurent_series_ring()
+    h4 = RL(q_exp_eta(EtaProduct(4,{1:8,4:-8}),prec) + 32)
+    r =  (RL(r)*(h4))
+    return r
+
+def valr4(N):
+    G = Gamma0(N)
+    d = 0
+    for c in G.cusps():
+        if c.is_gamma0_equiv(Cusp(0),4) or c.is_gamma0_equiv(Cusp(1/2),4):
+            d += 1
+    return 2*G.genus()-2 + d
+
+
+def r4_poles(N):
+    result = {}
+    v = cusp_diagram(N)
+    for c in v.keys():
+        if c.is_gamma0_equiv(Cusp(oo),4):
+            result[c] = v[c]-1
+        else:
+            result[c] = 0
+    return result
+
+
 def r_series_twisted(E,prec):
     #first compute f|w_N
     f = E.modular_form()
@@ -28,12 +102,9 @@ def r_series_twisted(E,prec):
     fq = eigwN*f.qexp(prec)
 
 
+
     # then compute u/du where u = 1/j
-    def normalize(g):
-        """
-        setting the first nonzero coefficient to be 1
-        """
-        return g/g.padded_list()[g.valuation()]
+
 
 
     E4 = eisenstein_series_qexp(4, prec)
@@ -90,7 +161,9 @@ def make_pows(r,degr):
 
 
 
-def poly_relation(r,u,degr,degu,description):
+import os
+
+def yang_relation(r,u,degr,degu,description):
     rows = degr + 1
     cols = degu + 1
     M=[]
@@ -106,6 +179,8 @@ def poly_relation(r,u,degr,degu,description):
 
     remainder = (-rs[degr] + us[degu]).truncate(1)
 
+    R.<r,u> = PolynomialRing(ZZ,2)
+    F = -r**degr+u^degu
     while remainder != 0:
         # suppose remainder starts with cq^-d
         d,c  = find_ldgtm(remainder)
@@ -113,6 +188,7 @@ def poly_relation(r,u,degr,degu,description):
             raise ValueError('got positive valuation, please debug')
         elif d == 0:
             M[0][0] == -c
+            F += -c
             break
         else:
             # solve x,y such that 228x + 143y = d
@@ -120,10 +196,16 @@ def poly_relation(r,u,degr,degu,description):
             verbose('a,b,c,d = %s,%s,%s,%s'%(a,b,c,d))
             remainder -= (c*rs[a]*us[b]).truncate(1)
             M[a][b] =  -c
+            F += -c*r**a*u**b
 
 
-    save(M, 'results/polyrel-%s'%description)
-    return M
+    if not os.path.exists('results'):
+        os.makedirs('results')
+    save(M, 'results/polyrel-matrix-%s'%description)
+    save(F,'results/polyrel-%s'%description)
+
+
+    return F
 
 
 def _polyrel(r,u,degr,degu,remainder, Max):
@@ -181,14 +263,83 @@ def atkin_lehner_eta(etaElement):
     return EtaProduct(N,v)
 
 
-
-
-def yang_product(N,positive = True):
+def r0(E,prec,twisted = False):
     """
-    Input: N — the level
-    Output: an eta product u of level N whose divisor is
-    D - m[oo], where D >= 0 has Supp(D) = Allcusps - oo.
-    i.e., every cusp not equal to oo is a zero of u, and the only pole of u is at infinity. and we want to find such u with minimum degree m.
+    returns fj(j-1728)/j'
+    """
+
+    f = E.modular_form().qexp(prec)
+    N = E.conductor()
+    R = f.parent(); q = R.gen()
+    E4 = eisenstein_series_qexp(4, prec)
+    E6 = eisenstein_series_qexp(6, prec)
+    delta = delta_qexp(prec)
+    u = R(delta/normalize(E4)**3)  # u0 = 1/j
+    du = R(u.derivative())
+    power =1
+    if twisted:
+        u = sub(u,N).add_bigoh(prec)
+        du = sub(du,N).add_bigoh(prec)
+        power = N
+        R = R.laurent_series_ring()
+    r = R(f*(1-1728*u)/du)
+    return R(r/q**power)
+
+
+def valr0(E):
+    N = E.conductor()
+    G = Gamma0(N)
+    return ZZ(G.index() - len(G.cusps()))
+
+
+def find_h(N):
+    """
+    find an eta product satisfying (1) only pole is oo,
+    (2) order at 0 is > 1/2*deg and coprime to deg.
+    """
+    h0 = yang_product(N)
+    h1 = yang_product(N, goal ='at_zero')
+    degh0, degh1 = ZZ(h0.degree()), ZZ(h1.degree())
+    ord0h0,ord0h1 = h0.order_at_cusp(CuspFamily(N,N)), h1.order_at_cusp(CuspFamily(N,N)) # cusp 0
+    k = 0
+    m = 0
+    print 'got here'
+    print h0.divisor(), h1.divisor()
+    print degh0, degh1,ord0h0,ord0h1
+    assert gcd(ord0h0, ord0h1) == 1 or gcd(ord0h0,degh0) == 1
+    while True:
+        ord0h = ord0h0 + m*ord0h1
+        degh = degh0 + m*ord0h1
+        if ord0h > 1/ZZ(2)*degh and gcd(ord0h,degh) == 1:
+            return h0*h1**m
+        else:
+            m+=1
+
+
+
+
+def formalsum_to_dict(formalsum):
+    v = list(formalsum)
+    result = {}
+    for t in v:
+        a = t[0]
+        c = t[1]
+        result[c] = a
+    return result
+
+
+
+def yang_product(N,goal = 'small_deg',Dmin = None):
+    """
+    Input:
+        N — the level
+        goal -- the type of eta product we want
+            'at-zero': m([0]-[oo])
+            'majorize': an eta product u of level N whose divisor is D - m[oo], where D majorizes Dmin.
+            'small_deg': want a eta product of divisor
+        Dmin -- a dictionary representing the divisor we want to majorize, only needed in 'majorize' mode.
+    Output:
+        The corresponding eta product
     """
 
     p = MixedIntegerLinearProgram(maximization = False)
@@ -199,29 +350,43 @@ def yang_product(N,positive = True):
 
     assert A.dimensions() == (number_of_etas,number_of_cusps)
 
-    if positive:
-        minorder = 1
-    else:
-        minorder = 0
+    print 'goal = %s'%goal
+    print 'Dmin = %s'%Dmin
     # we made it so that the first column always correspond to the cusp oo.
     for i in range(number_of_cusps):
-
         c = A.column(i)
         if i > 0:
-            p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),min = minorder) # zero at all other cusps
-        else:
+            if goal == 'at_zero':
+                if i < number_of_cusps -1:
+                    p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),max = 0)
+                    p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),min = 0)
+            elif goal == 'small_deg':
+                    p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),min = 0)
+            elif goal == 'majorize':
+                f = AllCusps(N)[i]
+                d =  f.level()//f.width()
+                try:
+                    dmin = Dmin[d]
+                except:
+                    dmin = 0
+                p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),min = dmin) # zero at all other cusps
+            else:
+                raise ValueError('specified invalid goal, must be one of at_zero, small_deg and majorize')
+        else: # the cusp oo
             p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),max = -1) # Infinity is a pole.
             p.set_objective(-sum([b[j]*c[j] for j in range(number_of_etas)])) # we want to minimize the degree
 
         p.set_min(b[i],None) # so that b[i] can take negative values
 
-
     p.solve(objective_only = False)
     x = p.get_values(b)
-
+    verbose('x = %s'%x)
 
     v = EtaGroup(N).basis()
-    return prod([v[i]**x[i] for i in range(len(v)) if x[i] >0])/prod([v[i]**(-x[i]) for i in range(len(v)) if x[i] <0])
+    d = [v[i]**(-x[i]) for i in range(len(v)) if x[i] <0]
+    if len(d) == 0:
+        return prod([v[i]**x[i] for i in range(len(v)) if x[i] >0])
+    else: return prod([v[i]**x[i] for i in range(len(v)) if x[i] >0])/prod(d)
 
 
 def divisor_matrix_eta(N):

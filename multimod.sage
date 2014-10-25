@@ -78,6 +78,9 @@ def get_primes(P,M):
 # of the coefficients of the zeropoly, to be used in the multimodular algorithm.
 
 def cn(n,d): # the maximal n-th coefficient the norm can take
+    """
+    here d = the index of Gamma0(N) in SL_2(Z)
+    """
     return RR((2**d)*binomial(n+d-1,d-1)*(n/d*N)**(k*d/2))
 
 
@@ -154,7 +157,11 @@ def coef_bound_new(g,lstG,useh8 = False):
         M = M**{1/12}*2**(4*g-3)
     return RealField(100)(M)
 
-def find_B_bound(N,k,d,prec,useh8 = False,useh16 = True):
+def find_B_bound(N,k,d,prec,useh8 = False,useh16 = False):
+    """
+    d = [SL_2(Z): Gamma_0(N)]
+    k = the weight of the modular form (usually 2)
+    """
 
     g = Gamma0(N).genus()
     wtf = wt_factor(k,d,N,prec)
@@ -169,7 +176,9 @@ def find_B_bound(N,k,d,prec,useh8 = False,useh16 = True):
 
     Nfbound = R([0]*valNf + [cn(ZZ(n),d) for n in range(valNf,valNf+2*g-2+10)])
     bigG = (Nfbound*v); bigG = bigG/q**bigG.valuation()
+    # bigG is the power series that majorizes F_f(q)
     coefB = coef_bound(g,bigG)
+    # coefB is the upper bound on the coefficient of F when we write F_f = F(j).
     if useh8:
         deg = 2*g-2
         C = (66.2)^deg * (2^(deg/12) -1);

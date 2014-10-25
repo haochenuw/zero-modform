@@ -1,7 +1,7 @@
 from sage.matrix.matrix_integer_dense import _lift_crt
 
 
-def zero_poly(f,p,k,description,deg = 1,check =False,proof = True):
+def zero_poly(f,p,k,description,deg = 1,check =False,proof = True, use_int = False):
     """
     Input: f -- the power series expansion of a modular form
            k -- the weight of f
@@ -12,7 +12,10 @@ def zero_poly(f,p,k,description,deg = 1,check =False,proof = True):
         f = f.qexp(v[2]+10) # added one since the way qexp works.
     except:
         pass
-    Nf = Norm(f,p,k,deg,check,proof)
+    if not use_int:
+        Nf = Norm(f,p,k,deg,check,proof)
+    else:
+        Nf = Norm_int(f,p,k)
     verbose('done computing the norm')
     Fq = normalize(Nf)/normalize(weight_factor(p,k))
     L = Fq.truncate_laurentseries(1).coefficients()
@@ -220,7 +223,7 @@ def _norm(f,p,phip,llist,a):
 def norm(f,p,k,deg,check,proof):
     """
     Given a modular form of weight k and level p.
-    sing multimodular algorithm(computing mod primes, and use CRT to lift back)
+    Use multimodular algorithm(computing mod primes, and use CRT to lift back)
     to compute the norm of a modular form f of level p
     ASSUMPTION: f has integer coefficients
     """
@@ -229,7 +232,7 @@ def norm(f,p,k,deg,check,proof):
     count = 0
     prec_big = f.prec()
     prec_med = (prec_big-pad)//p
-    bigN = coef_bound(f,p,k,deg,new)
+    bigN = coef_bound(f,p,k,deg,new = True)
     if check:
         bigN = floor(bigN^(1.2))
     if not proof:
@@ -283,7 +286,7 @@ def weight_index(N,k):
         return None
 
 
-def Norm_comp(f,N,weight,deg,check =False):
+def Norm_comp(f,N,weight,deg,use_ZZ, check =False):
     """
     Given a modular form of weight k and level N(N = square free),
     using multimodular algorithm(computing mod primes, and use CRT to lift back)
@@ -293,7 +296,10 @@ def Norm_comp(f,N,weight,deg,check =False):
     v = N.prime_divisors()
     tmp = f
     for p in v:
-        tmp = Norm(tmp,p,weight,deg,check)
+        if not use_ZZ:
+            tmp = Norm(tmp,p,weight,deg,check)
+        else:
+            tmp = Norm_int(tmp,p,weight)
         weight = weight*(p+1)
     return tmp
 
@@ -303,7 +309,7 @@ pad = 10 # the padding to make sure we have computed enough
 # to-do: return to Norm to deal with the issue of precision information
 
 
-def zero_poly_comp(f,N,k,description,deg =1,check = False):
+def zero_poly_comp(f,N,k,description,deg =1,check = False,use_ZZ = False):
     """
     zero-polynomial for composite square free level
 
@@ -322,7 +328,7 @@ def zero_poly_comp(f,N,k,description,deg =1,check = False):
         f = f.qexp(prec_high+pad+1)
     except:
         pass
-    Nf = Norm_comp(f,N,k,deg,check)
+    Nf = Norm_comp(f,N,k,deg,use_ZZ,check)
     num_terms = prec_low
     verbose('valuation of Nf = %s'%Nf.valuation())
     verbose('done computing the norm')
@@ -356,3 +362,62 @@ def zero_poly_comp(f,N,k,description,deg =1,check = False):
     verbose('zero polynomial computed and saved.')
     return F
 
+
+
+
+
+def Norm_int(f,p,k, use_cc = False):
+    """
+    Computes the norm of a modular form of level p,
+    where p is a prime. \prod f|_A for A in SL_2(ZZ)/Gamma0(p)
+    recommened prec = (g^3-g+1)*(p+1)
+    Input:
+        f -- a power series
+        p -- the level of f
+        k -- the weight of f
+        use_cc -- if true, uses complex floating point numbers
+
+    """
+    verbose('Computing a %s-norm'%p)
+    if use_cc:
+        C = ComplexField(f.prec()//3)
+        z = C.zeta(p)
+    else:
+        C.<z> = CyclotomicField(p)
+
+    verbose('parent of series = %s'%f.parent())
+    verbose('prec of series = %s'%f.prec())
+    try:
+        q = f.parent().gen()
+        f = ZZ[[q]](f)
+    except:
+        raise ValueError("not a integral series")
+    f = f.change_ring(C)
+    R = f.parent()
+    q = R.gens()[0]
+    prec = f.prec()
+    verbose("Number of multiplications to perform on powerseries with precision %s : %s"%(prec,p))
+    L = f.padded_list(prec) # raised everything to pth power q = q'^p
+    F = R(1)
+    for k in range(p):
+        t = cputime()
+
+        #tmp = R(sum([z**(ZZ(Mod(i*k,p)))*(q**i)*L[i] for i in range(prec)]))
+        #verbose("Creating poly took %s seconds"%cputime(t))
+        #t = cputime()
+
+        tmp = R([z**(ZZ(Mod(i*k,p)))*L[i] for i in range(prec)])
+        #verbose("Creating poly tmp way took %s seconds"%cputime(t))
+
+        # save(tmp, os.path.join(os.environ['HOME'],'wstein','f%s'%k))
+
+        F = F * tmp # k = 0,1,...,p-1
+        F = F.truncate(prec)
+        verbose("The %s th multiplication is performed within %s seconds"%(k+1, cputime(t)))
+    # convert back to q
+    new_prec = ZZ(prec//p)
+    F_coef = F.padded_list()
+    F_coef = F_coef[0::p]
+    verbose('F_coef = %s'%F_coef)
+    F = R([F_coef[i] for i in range(new_prec)])
+    return F*f

@@ -85,7 +85,7 @@ def get_poly(degr,degu,M):
     F = 0
     for a in range(degr+1):
         for b in range(degu+1):
-            F += v[a*(degu+1)+b]*r^a*u^b
+            F += M[a*(degu+1)+b]*r^a*u^b
 
     return F
 
@@ -117,3 +117,7 @@ def r_series(E,prec,twisted = True):
         R = R.laurent_series_ring()
     r = R(-f*u/du)
     return R(r/q**power)
+
+
+
+
