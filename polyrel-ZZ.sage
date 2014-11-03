@@ -44,12 +44,19 @@ def normalize(g):
     return g/g.padded_list()[g.valuation()]
 
 
-def r4_series(E,prec):
+def r4_series(E,prec,power_series = False):
     """
     when there's no elliptic point
     Div(r) = Z_\omega + (cusps ~0 or 1/2 mod Gamma0(4)) - (pi_4^*(oo) - (cusps ~oo mod Gamma0(4)))
-    """
 
+
+    Only works for 4 | N.
+    If power_series = False, return r4 such that Div0r4 = Z_w + cusps~0 + cusps ~1/2
+    If True, return Div0r4 = Zw + cusps~1/2 + cusps ~oo
+
+    """
+    N = E.conductor()
+    assert Mod(N,4) == 0
     f = E.modular_form()
     fq = f.qexp(prec)
 
@@ -71,8 +78,12 @@ def r4_series(E,prec):
     verbose('2')
     r = R(fq*u0*gnew/(du0*q))
     RL = R.laurent_series_ring()
-    h4 = RL(q_exp_eta(EtaProduct(4,{1:8,4:-8}),prec) + 32)
-    r =  (RL(r)*(h4))
+    if not power_series:
+        h4 = RL(q_exp_eta(EtaProduct(4,{1:8,4:-8}),prec) + 32)
+        r =  (RL(r)*(h4))
+    else:
+        h4 = R(1 + 32*q_exp_eta(EtaProduct(4,{1:-8,4:8}),prec))
+        r =  (RL(r)*(h4)).power_series()
     return r
 
 def valr4(N):
@@ -316,6 +327,22 @@ def find_h(N):
             m+=1
 
 
+def change_keys(dictionary,N):
+    """
+    change keys from cusp to divisors
+    """
+    v = dictionary
+    result = {}
+    for c in v.keys():
+        if c != Infinity:
+            d = c.denominator()
+            if result.has_key(d):
+                result[d] = max(v[c],result[d])
+            else:
+                result[d] = v[c]
+        else:
+            result[N] = v[c]
+    return result
 
 
 def formalsum_to_dict(formalsum):
@@ -400,7 +427,51 @@ def divisor_matrix_eta(N):
 
 
 
+def find_etas(N):
+    """
+    finds a pair (hr,h) of eta products, such that
+    (1) hr has only pole at infinity
+    (2) hr*r4 has only pole at oo.
+    (2) h has only pole at oo, and the degree of h is the smallest among such
 
+    """
+
+    assert Mod(N,4) == 0
+    v = r4_poles(N)
+    w = change_keys(v,N)
+    hr = yang_product(N,goal ='majorize',Dmin = w)
+    valr =  ZZ(hr.degree())
+    h = yang_product(N)
+    valh = ZZ(h.degree())
+    if gcd(valr,valh) == 1:
+        print valr,valh
+        return hr, h
+    else:
+        # we can use r4j*hr4j and hr4j
+        raise ValueError('did not find pairs')
+
+
+def get_expansions(E,hr,h,padding = 30):
+    """
+    given a pair of functions relatively small degree
+    such that zeros of r contains zeros of omega + some cusps
+    and h is a small degree eta product.
+    """
+
+    valr, valh = ZZ(hr.degree()), ZZ(h.degree())
+    verbose('valr = %s, varh = %s'%(valr,valh))
+    prec = (valr+1)*(valh+1)+padding
+    verbose('prec = %s'%prec)
+    r = r4_series(E,prec)
+    hrq = q_exp_eta(hr,prec)
+    hq = q_exp_eta(h,prec)
+
+
+    rfinal = r*hrq
+    hfinal = hq
+    save(rfinal,'r-%s'%valr)
+    save(hfinal,'h-%s'%valh)
+    return r*hrq, hq
 
 
 

@@ -16,7 +16,7 @@ def lift(M,r0,u):
     n = r0.prec()
     u = u.truncate(n+1).add_bigoh(n+1)
     #print 'r0 = ', r0
-    f = mod_poly(M,n+1) # trimming all parts where degu > n+1
+    f = mod_poly(M,n+1) # trimming all parts where degu >= n+1
     #print 'f = ',f
     K = r0.padded_list()[0].parent()
     T.<b> = K[]

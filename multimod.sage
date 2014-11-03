@@ -210,6 +210,8 @@ def degree(l,dega,degb):
 # for chow-heegner purposes, or for any occasion where the zeros of a
 # function is not known to be integral under the other function.
 
+import os
+
 def relation_zz(r,u,degr,degu,padding,description):
     matrix = []
     num_terms = (degu+1)*(degr+1)
@@ -252,16 +254,30 @@ def relation_zz(r,u,degr,degu,padding,description):
 
     elif len(K) > 1:
         verbose('the dimension of the kernel is: %s'%len(K))
+        if not os.path.exists('debug'):
+            os.makedirs('debug')
         save(K,'debug/kernel-%s'%description)
         #save(K, os.path.join(os.environ['HOME'],'poly-relation','debug','kernel-%s'%description))
         raise ValueError('kernel is greater than one dimensional, please debug')
 
     k = K[0]
     kmat = Matrix(k[0].parent(),1,len(k),list(k))
+
+    if not os.path.exists('results'):
+        os.makedirs('results')
+
     save(kmat,'results/kmat-%s'%description)
     save(list(kmat), os.path.join(os.environ['HOME'],'poly-relation','results','relation-%s'%description))
     verbose('the whole computation took %s seconds'%cputime(t))
-    return kmat
+
+    kk = list(kmat)[0]
+    R.<r,u> = PolynomialRing(QQ,2)
+    F = R(0)
+    for a in range(degr+1):
+        for b in range(degu+1):
+                F += kk[a*(degu+1)+b]*r**a*u**b
+    save(F,'results/F-%s'%description)
+    return F
 
 
 # one prime at a time
@@ -379,6 +395,13 @@ def multimodular_zeropoly(plist,degr,degu,r,u,padding):
     for output in _multimodular_zeropoly(inputs):
         multiMat += output[1]
     return multiMat
+
+def get_xinv(E,prec):
+    e = list(gp.elltaniyama(E,prec))[0];
+    x = var('x')
+    e = ZZ[[x]]([gp.polcoeff(e,a) for a in range(-2,prec-1)]).add_bigoh(prec+1)
+    x = e.parent().gen()
+    return x^2/e
 
 
 
