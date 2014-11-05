@@ -396,8 +396,10 @@ def multimodular_zeropoly(plist,degr,degu,r,u,padding):
         multiMat += output[1]
     return multiMat
 
-def get_xinv(E,prec):
-    e = list(gp.elltaniyama(E,prec))[0];
+def get_xinv(E,prec,alloc_mem = 10^10):
+    pari.allocatemem(alloc_mem) # note this may not work on every machine
+    pari.set_series_precision(prec)
+    e = list(pari(E).elltaniyama())[0];
     x = var('x')
     e = ZZ[[x]]([gp.polcoeff(e,a) for a in range(-2,prec-1)]).add_bigoh(prec+1)
     x = e.parent().gen()

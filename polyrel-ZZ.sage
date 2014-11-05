@@ -64,6 +64,8 @@ def r4_series(E,prec,power_series = False):
     E6 = eisenstein_series_qexp(6, prec)
     delta = delta_qexp(prec)
 
+    verbose('E4,E6,delta are computed.')
+
 
     N = E.conductor()
     R = fq.parent(); q = R.gen()
@@ -440,15 +442,12 @@ def find_etas(N):
     v = r4_poles(N)
     w = change_keys(v,N)
     hr = yang_product(N,goal ='majorize',Dmin = w)
-    valr =  ZZ(hr.degree())
+    valh1 =  ZZ(hr.degree())
     h = yang_product(N)
-    valh = ZZ(h.degree())
-    if gcd(valr,valh) == 1:
-        print valr,valh
-        return hr, h
-    else:
-        # we can use r4j*hr4j and hr4j
-        raise ValueError('did not find pairs')
+    valh2 = ZZ(h.degree())
+    print valh1,valh2
+
+    return hr, h
 
 
 def get_expansions(E,hr,h,padding = 30):
