@@ -1,7 +1,7 @@
 from sage.matrix.matrix_integer_dense import _lift_crt
 
 
-def zero_poly(f,p,k,description,deg = 1,check =False,proof = True, use_int = False):
+def zero_poly(f,p,k,description,deg = 1,checkPower = 1,proof = True, use_int = False):
     """
     Input: f -- the power series expansion of a modular form
            k -- the weight of f
@@ -13,7 +13,7 @@ def zero_poly(f,p,k,description,deg = 1,check =False,proof = True, use_int = Fal
     except:
         pass
     if not use_int:
-        Nf = Norm(f,p,k,deg,check,proof)
+        Nf = Norm(f,p,k,deg,checkPower,proof)
     else:
         Nf = Norm_int(f,p,k)
     verbose('done computing the norm')
@@ -125,7 +125,7 @@ def precs(p,k):
     g = Gamma0(p).genus()
     return (k*(g-1)+ 1 , k*g+1+1 , p*(k*g+1 + 1))
 
-def coef_bound(f,p,k,deg,new = True):
+def coef_bound(f,p,k):
     """
     bound the largest possible coefficient of
     a product of p modular forms with degree prec, where if f = \sum a_nq^n
@@ -133,12 +133,12 @@ def coef_bound(f,p,k,deg,new = True):
     with |b_n| = 1 for all n.
     """
     prec = f.prec()
+    verbose('the precision of the power series = %s'%prec)
+    verbose('k = %s'%k)
     v = f.padded_list()
-    if new:
-        C = max([abs(v[n])/n^(k/2) for n in range(1,prec)])
-    else: C = 2
+    C = max([abs(v[n])/n^(k/2) for n in range(1,prec)] + [1])
     verbose('the constant C used is %s'%C)
-    return RR(binomial(prec + p-1, p-1)*((C*deg*prec//p)^(k*p/2)))
+    return RR(binomial(prec + p-1, p-1)*(C**p)*(prec//p)^(p*k/2))
 
 
 
@@ -216,11 +216,11 @@ def norm_mod_l(f,p,phip,l):
 def _norm(f,p,phip,llist,a):
     Matlist = []
     for l in llist:
-        if Mod(l,21) == a:
+        if Mod(l,20) == a:
             Matlist.append(norm_mod_l(f,p,phip,l))
     return Matlist
 
-def norm(f,p,k,deg,check,proof):
+def norm(f,p,k,deg,checkPower,proof):
     """
     Given a modular form of weight k and level p.
     Use multimodular algorithm(computing mod primes, and use CRT to lift back)
@@ -232,14 +232,17 @@ def norm(f,p,k,deg,check,proof):
     count = 0
     prec_big = f.prec()
     prec_med = (prec_big-pad)//p
-    bigN = coef_bound(f,p,k,deg,new = True)
-    if check:
-        bigN = floor(bigN^(1.2))
+    bigN = coef_bound(f,p,k)
+
+    verbose('checkpower = %s'%checkPower)
+    bigN = floor(bigN**checkPower)
+
+
     if not proof:
         verbose('proof = False')
         bigN = RealField(200)(sqrt(bigN)) # take its square root. Then the result could be double checked by mod p (?)
     phip = cyclotomic_polynomial(p)
-    verbose('the bound on the size of coefficents of the norm is %s'%bigN)
+    verbose('the bound on the size of coefficents of the norm is %s'%RR(bigN))
     llist = mod1_primes(p,2*bigN) #multiply by 2 since we are inside the interval [-bigN, bigN]
     verbose('we are using %s primes'%len(llist))
     verbose('the primes are %s'%str(llist))
@@ -249,14 +252,14 @@ def norm(f,p,k,deg,check,proof):
         Matlist += output[1]
 
     # save the matrix list to a file
-    save(Matlist, os.path.join(os.environ['HOME'],'critical-point','debug','modlcoeffs%s'%p))
+    #save(Matlist, os.path.join(os.environ['HOME'],'critical-point','debug','modlcoeffs%s'%p))
     M = _lift_crt(Matrix(ZZ, 1, prec_med), Matlist)
     R.<q> = QQ[[]]
     return R(M.list()).add_bigoh(prec_med)
 
-def Norm(f,p,k,deg,check = False,proof = True):
+def Norm(f,p,k,deg,checkPower = 1,proof = True):
     R.<q> = QQ[[]]
-    nf = norm(f,p,k,deg,check,proof)
+    nf = norm(f,p,k,deg,checkPower,proof)
     prec_med = nf.prec()
     return R(nf*f.truncate(prec_med)).add_bigoh(prec_med)
 
@@ -264,11 +267,11 @@ def Norm(f,p,k,deg,check = False,proof = True):
 
 def base_prec(N,k):
     """
-    the precision B needed for N_N(f), i.e., we need
+    the precision B needed for Norm_N(f), i.e., we need
     to compute N_N(f)(q) = \cdots + q^(B) + \cdots
     """
     g = Gamma0(N).genus()
-    return (k*(g-1)+1, k*(g-1) + 1 + sigma(N,0)*k//2)
+    return (k*(g-1)+1, k*(g-1) + 1 + 2**sigma(N,0) + 10)
 
 
 def weight_index(N,k):
@@ -286,7 +289,7 @@ def weight_index(N,k):
         return None
 
 
-def Norm_comp(f,N,weight,deg,use_ZZ, check =False):
+def Norm_comp(f,N,weight,deg,multimodular,checkPower = 1):
     """
     Given a modular form of weight k and level N(N = square free),
     using multimodular algorithm(computing mod primes, and use CRT to lift back)
@@ -296,8 +299,8 @@ def Norm_comp(f,N,weight,deg,use_ZZ, check =False):
     v = N.prime_divisors()
     tmp = f
     for p in v:
-        if not use_ZZ:
-            tmp = Norm(tmp,p,weight,deg,check)
+        if multimodular:
+            tmp = Norm(tmp,p,weight,deg,checkPower)
         else:
             tmp = Norm_int(tmp,p,weight)
         weight = weight*(p+1)
@@ -309,7 +312,7 @@ pad = 10 # the padding to make sure we have computed enough
 # to-do: return to Norm to deal with the issue of precision information
 
 
-def zero_poly_comp(f,N,k,description,deg =1,check = False,use_ZZ = False):
+def zero_poly_comp(f,N,k,description,deg =1,checkPower = 1,multimodular = False):
     """
     zero-polynomial for composite square free level
 
@@ -321,14 +324,17 @@ def zero_poly_comp(f,N,k,description,deg =1,check = False,use_ZZ = False):
     """
     if not N.is_squarefree():
         raise NotImplementedError('N must be square free')
+
+
+    description += 'checkPower = %s'%checkPower
     prec_low,prec_med = base_prec(N,k)
     prec_high = sigma(N,1)*prec_med
-    verbose('prec_high = %s'%prec_high)
+    verbose('medium and high precs = %s, %s'%(prec_med,prec_high))
     try:
         f = f.qexp(prec_high+pad+1)
     except:
         pass
-    Nf = Norm_comp(f,N,k,deg,use_ZZ,check)
+    Nf = Norm_comp(f,N,k,deg,multimodular,checkPower)
     num_terms = prec_low
     verbose('valuation of Nf = %s'%Nf.valuation())
     verbose('done computing the norm')
@@ -358,7 +364,7 @@ def zero_poly_comp(f,N,k,description,deg =1,check = False,use_ZZ = False):
     print 'L = ', L
     T.<x> = QQ[]
     F = T(alist[::-1])
-    save(F, os.path.join(os.environ['HOME'],'critical-point','zero-modform','F%s-%s-%s'%(N,k,description)))
+    save(F, os.path.join(os.environ['HOME'],'critical-point','zero-modform','F-%s'%description))
     verbose('zero polynomial computed and saved.')
     return F
 
