@@ -136,9 +136,9 @@ def coef_bound(f,p,k):
     verbose('the precision of the power series = %s'%prec)
     verbose('k = %s'%k)
     v = f.padded_list()
-    C = max([abs(v[n])/n^(k/2) for n in range(1,prec)] + [1])
-    verbose('the constant C used is %s'%C)
-    return RR(binomial(prec + p-1, p-1)*(C**p)*(prec//p)^(p*k/2))
+    C = max([abs(v[n])/n^(k/2) for n in range(1,prec)])
+    verbose('the constant C used is %s'%RR(C))
+    return RR(binomial(prec + p-1, p-1)*(RR(C)**p)*(prec//p)^(p*k/2))
 
 
 
