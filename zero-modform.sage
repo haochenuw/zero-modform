@@ -1,7 +1,7 @@
 from sage.matrix.matrix_integer_dense import _lift_crt
 
 
-def zero_poly(f,p,k,description,deg = 1,checkPower = 1,proof = True, use_int = False):
+def zero_poly(f,p,k,description,deg = 1,checkPower = 1,proof = True, multimodular = True):
     """
     Input: f -- the power series expansion of a modular form
            k -- the weight of f
@@ -12,7 +12,7 @@ def zero_poly(f,p,k,description,deg = 1,checkPower = 1,proof = True, use_int = F
         f = f.qexp(v[2]+10) # added one since the way qexp works.
     except:
         pass
-    if not use_int:
+    if multimodular:
         Nf = Norm(f,p,k,deg,checkPower,proof)
     else:
         Nf = Norm_int(f,p,k)
@@ -209,6 +209,7 @@ def norm_mod_l(f,p,phip,l):
     verbose("The multiplication for the prime %s is performed within %s seconds"%(l, cputime(t)))
     #verbose("the old and new of coefficients for prime %s: %s, %s"%(l,len(F.padded_list()),len(F.padded_list()[0::p])))
     L = F.padded_list()[0::p]
+    save(L[:prec_med],'results/norm-mod-%s'%l)
     return Matrix(GF(l),1,prec_med,L[:prec_med])
 
 
