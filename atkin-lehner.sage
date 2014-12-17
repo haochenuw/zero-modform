@@ -730,6 +730,8 @@ def is_gamma0N_equiv(z1,z2,N):
     w2, g2 = sl2z_rep_in_fundom_q(z2)  # g2(z2) = w2 = canonical rep
     a1, g1 = canonicalize_sl2z_q(w1, g1)
     a2, g2 = canonicalize_sl2z_q(w2, g2)
+    assert g1.acton(z1) == a1
+    assert g2.acton(z2) == a2
     if a1 != a2:
         # The points are not even sl2z-equivalent, so they can't be
         # Gamma_0(N) equivalent
@@ -750,12 +752,17 @@ def is_gamma0N_equiv(z1,z2,N):
     #print 'a1, g1: ',a1,g1, 'a2, g2: ',a2,g2
     g2i = g2**(-1)
     g = g2i*g1
+    # g satisfies: g(z1) == z2.
+
     if g[1,0]%N == 0:
         return True
     S, T = g1.parent().gens()
+    #I = matrix([1,0,0,1],2)
     if a1**2 == -1:
+        #lst = [I,S,-S,-I]
         return (g2i*S*g1)[1,0]%N == 0
     elif a1**3 == 1:
+        #lst = [(S*T),(S*T)^2,]
         return (g2i*S*T*g1)[1,0]%N == 0 or (g2i*S*T*S*T*g1)[1,0]%N == 0
     return False
 

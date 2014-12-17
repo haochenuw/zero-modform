@@ -1,15 +1,21 @@
 
-class r4():
+class rFunction():
     """
     The r4 series and related modular functions on X_0(N)
     when 4 \mid N
     """
-    def __init__(self,E):
+    def __init__(self,E,n):
+        """
+        n -- a divisor of the level N.
+        """
+        if n != 4 and n!=9:
+            raise ValueError('n must be 4 or 9.')
         N = E.conductor()
-        if Mod(N,4) != 0:
-            raise ValueError('N( = %s) must be divisible by 4')
+        if Mod(N,n) != 0:
+            raise ValueError('N( = %s) must be divisible by %s'%n)
         self.E = E
         self.N = N
+        self.n = n
 
     def poles(self):
         """
@@ -18,27 +24,54 @@ class r4():
         N = self.N
         result = {}
         v = cusp_diagram(N)
-        for c in v.keys():
-            if c.is_gamma0_equiv(Cusp(oo),4):
-                result[c] = v[c]-1
-            else:
-                result[c] = 0
+
+        n = self.n
+        if n == 4:
+            for c in v.keys():
+                if c.is_gamma0_equiv(Cusp(oo),4):
+                    result[c] = v[c]-1
+                else:
+                    result[c] = 0
+        elif n == 9:
+            for c in v.keys():
+                if c.is_gamma0_equiv(Cusp(0),9):
+                    result[c] = v[c]//9 -1
+                elif  c.is_gamma0_equiv(Cusp(oo),9):
+                    result[c] = v[c] - 1
+                else:
+                    result[c] = 0
+        else:
+            raise NotImplementedError
         return result
 
     def zeros(self):
         """
-        the extra zeros outside the zeros of
+        the extra zeros outside the zeros of omega.
         """
         N = self.N
+        n = self.n
         result = {}
-        for c in Gamma0(N).cusps():
-            if not c.is_gamma0_equiv(Cusp(oo),4):
-                result[c] = 1
-            else:
-                result[c] = 0
+
+        if n == 4:
+            for c in Gamma0(N).cusps():
+                if not c.is_gamma0_equiv(Cusp(oo),4):
+                    result[c] = 1
+                else:
+                    result[c] = 0
+        elif n == 9:
+            for c in Gamma0(N).cusps():
+                if c.is_gamma0_equiv(Cusp(1/3),9) or c.is_gamma0_equiv(Cusp(2/3),9):
+                    result[c] = 1
+                else:
+                    result[c] = 0
+        else:
+            raise NotImplementedError
         return result
 
     def degree(self):
+        """
+        degree of this modular function. This is independent of dprime.
+        """
         N = self.N
         deg = sum([b for a,b in self.poles().items()])
         if deg - 2*Gamma0(N).genus() + 2 - sum([b for a,b in self.zeros().items()]) != 0:
@@ -65,22 +98,33 @@ class r4():
 
         h2 = yang_product(N,goal = 'concentrate',denom = denom)
         degh2 = ZZ(h2.degree())
+        verbose('degh1 = %s, degh2 = %s'%(degh1,degh2))
+        verbose('divisor of h2 = %s'%h2.divisor())
 
-
-        if gcd(degh1,degh2) > 1:
+        if gcd(degh1,degh2) == 1:
+            verbose('degrees = %s,%s'%(h1.degree(),h2.degree()))
+            return h1, h2
+        else:
+            verbose('extra work being done...')
 
             # need some extra work]
             w1 = change_keys(cusp_diagram(N),N)
 
             g = Gamma0(N).genus()
             c = adjust_to_coprime(degh1,degh2,g+1)
-
-            h3 = yang_product(N,goal = 'prescribe_degree',deg = c)
-            h1 = h1*h3
-            verbose('degrees = %s,%s'%(h1.degree(),h2.degree()))
-
-
-        return h1, h2
+            while True:
+                verbose('c = %s'%c)
+                if gcd(degh1 + c,degh2) == 1:
+                    h3 = yang_product(N,goal = 'prescribe_degree',deg = c)
+                    if h3 is not None:
+                        h1new = h1*h3
+                        verbose('degrees = %s,%s'%(h1new.degree(),h2.degree()))
+                        break
+                    else:
+                        verbose('no eta function of such degree')
+                c += 1
+        verbose('divisor of h1 = %s'%h1new.divisor())
+        return h1new, h2
 
     def q_exp(self,prec):
         """
@@ -94,6 +138,7 @@ class r4():
         """
         E = self.E
         N = self.N
+        n = self.n
 
         f = E.modular_form()
         fq = f.qexp(prec)
@@ -109,22 +154,45 @@ class r4():
         u0 = R(delta/normalize(E4)**3)  # u0 = 1/j
         du0 = R(u0.derivative())
 
-        g = delta/sub(delta,2)
-        gnew =  normalize(((g-512)/(g+256)).power_series()) # level = 2 , div(gnew) = [i] - [rho]
+        # different recipies for different n:
+        if n == 4:
+            g2 = delta/sub(delta,2)
+            gnew =  normalize(((g2-512)/(g2+256)).power_series()) # level = 2 , div(gnew) = [i] - [rho]
 
-        r = R(fq*u0*gnew/(du0*q))
-        RL = R.laurent_series_ring()
+            r = R(fq*u0*gnew/(du0*q))
+            RL = R.laurent_series_ring()
 
-        h4 = RL(q_exp_eta(EtaProduct(4,{1:8,4:-8}),prec) + 32)
-        r =  (RL(r)*(h4))
+            h4 = RL(q_exp_eta(EtaProduct(4,{1:8,4:-8}),prec) + 32)
+            r =  RL(r)*(h4)
+        elif n == 9:
+            r =R(fq*u0/(du0*q))
+            RL = R.laurent_series_ring()
+
+
+            m3 =  q_exp_eta(EtaGroup(3).basis()[0],prec)
+            g3 =  RL((m3**2 - 486*m3 - 19683)/(m3+243))
+            verbose('level 3 adjustment computed')
+            m9 = q_exp_eta(EtaGroup(9).basis()[0],prec)
+            g9 = RL(1/(m9+9))
+            verbose('level 9 adjustment computed')
+            r = RL(r)*g3*g9
+
+            # we add this h9 so that the divisor of r9
+            # is div(omega) + cusps - pi9^*([0]+[infty]),so it is non-vanishing at oo.
+
+            h9 = q_exp_eta(EtaGroup(9).basis()[1],prec)
+
+            r = r*RL(h9)
+            verbose('r computed')
+        else:
+            raise NotImplementedError
 
         return r
 
-    def get_expansions(self,dprime,padding =30):
+    def get_expansions(self,dprime, padding =30):
         """
-        find the order of vanishing of the cusps of a certain denominator.
-
-        return the extra "order" to be subtracted from our list
+        return the expansions of rh1 and h2
+        also return the extra "order" to be subtracted from our list
         """
         h1, h2 = self.find_etas(dprime)
 
@@ -143,9 +211,11 @@ class r4():
 
         h1q,h2q = R(q_exp_eta(h1,prec)), R(q_exp_eta(h2,prec))
 
-
+        verbose('expansions of h1 and h2 obtained.')
         rfinal = rq*h1q
         hfinal = h2q
+
+        verbose('final expansions obtained')
 
         import os
         if not os.path.exists('results'):
@@ -155,13 +225,14 @@ class r4():
 
         N = self.N
         c = CuspFamily(N,dprime,'1')
-        orderFromr = self.zeros()[Cusp(1/(N//dprime))]
+        orderFromr = self.zeros()[Cusp(1/(N//dprime))] - self.poles()[Cusp(1/(N//dprime))]
         orderFromh1 = h1.order_at_cusp(c)
 
 
         denom = N//dprime
 
-
+        verbose('order from r = %s'%orderFromr)
+        verbose('order from h1 = %s'%orderFromh1)
         order = orderFromr + orderFromh1
 
 
@@ -169,7 +240,11 @@ class r4():
 
     @cached_method
     def order(self,dprime = 4):
+        """
+        return the order of vanishing of omega at cusps of denom dprime.
+        """
         r,h,degr,degh,order = self.get_expansions(dprime)
+        verbose('expansions obtained. Now computing a relation...')
         P = yang_relation(r,h,degh,degr,'test')
         x, y = P.parent().gens()
         f0 = P(x = 0)
@@ -177,10 +252,10 @@ class r4():
         N = self.N
         denom = N//dprime
         sizeOfOrbit = euler_phi(gcd(denom,dprime))
-        totalDeg = f.gcd(y**f.degree()).degree()
+        totalDeg = f0.gcd(y**f0.degree()).degree()
         if Mod(totalDeg, sizeOfOrbit) != 0:
             raise ValueError('wrong')
-        return (f.gcd(y**f.degree()).degree()//totalDeg ) -order
+        return (totalDeg//sizeOfOrbit ) -order
 
 
 
@@ -273,6 +348,25 @@ def r4_series(E,prec,power_series = False):
         h4 = R(1 + 32*q_exp_eta(EtaProduct(4,{1:-8,4:8}),prec))
         r =  (RL(r)*(h4)).power_series()
     return r
+
+
+
+def invert_eta(h):
+    """
+    h  = EtaGroupElement
+    return the inverse of h
+    EXAMPLES::
+
+        sage: f = EtaGroup(100).basis()[0]; g = invert_eta(f)
+        sage: g*f
+        Eta product of level 100 : 1
+    """
+    N = h.level()
+    v = N.divisors()
+    dic = {}
+    for d in v:
+        dic[d] = -h.r(d)
+    return EtaProduct(N,dic)
 
 def degr4(N):
     """
@@ -373,6 +467,8 @@ def make_pows(r,degr):
 import os
 
 def yang_relation(r,u,degr,degu,description):
+    verbose('degr = %s'%degr)
+    verbose('degu = %s'%degu)
     rows = degr + 1
     cols = degu + 1
     M=[]
@@ -403,7 +499,7 @@ def yang_relation(r,u,degr,degu,description):
             F += -c
             break
         else:
-            # solve x,y such that 228x + 143y = d
+            # solve x,y such that degu x + degr y = d
             a,b  = solve_dioph(degu,degr,abs(d))
             verbose('a,b,c,d = %s,%s,%s,%s'%(a,b,c,d))
             remainder -= (c*rs[a]*us[b]).truncate(1)
@@ -515,7 +611,6 @@ def find_h(N):
     ord0h0,ord0h1 = h0.order_at_cusp(CuspFamily(N,N)), h1.order_at_cusp(CuspFamily(N,N)) # cusp 0
     k = 0
     m = 0
-    print 'got here'
     print h0.divisor(), h1.divisor()
     print degh0, degh1,ord0h0,ord0h1
     assert gcd(ord0h0, ord0h1) == 1 or gcd(ord0h0,degh0) == 1
@@ -557,15 +652,17 @@ def formalsum_to_dict(formalsum):
 
 
 
-def yang_product(N,goal = 'small_deg',Dmin = None,denom = None, deg = None):
+def yang_product(N,goal = 'small_deg',Dmin = None,denom = None, deg = None,exclude = None):
     """
     Input:
         N — the level
         goal -- the type of eta product we want
-            'concentrate': m([0]-[oo])
+            'concentrate': m([Pd]-[oo]), d = denom.
             'majorize': an eta product u of level N whose divisor is D - m[oo], where D majorizes Dmin.
             'small_deg': want a eta product of divisor
             'prescribe_degree': want the degree to be deg
+            'majorize-prescribe_degree': do both.
+            'concentrate_exclude': an extension of concentrate: provide a list of denominators where the eta product can have zero.
 
         Dmin -- a dictionary representing the divisor we want to majorize, only needed in 'majorize' mode.
     Output:
@@ -582,6 +679,13 @@ def yang_product(N,goal = 'small_deg',Dmin = None,denom = None, deg = None):
         sage: h = yang_product(32,goal = 'concentrate',denom = 4); h.divisor()
         sage: -2*(Inf) + (c_{8,2}) + (c_{8,1})
 
+    concentrate_exclude::
+        sage: yang_product(162,goal = 'concentrate_exclude',denom = 18, exclude = []).divisor()
+        sage: (c_{9,6}) + (c_{27,1}) + (c_{27,2}) + (c_{81}) + (c_{9,4}) + (c_{9,1}) - 9*(Inf) + (c_{9,5}) + (c_{9,2}) + (c_{9,3})
+
+    majorize-prescribe_degree::
+        sage: yang_product(162,goal = 'majorize-prescribe_degree',Dmin = {1:1,27:2},deg = 24).divisor()
+        sage: 3*(c_{54,1}) + 3*(c_{54,2}) + 3*(0) + 3*(c_{6,1}) + 3*(c_{3,2}) + 3*(c_{2}) + 3*(c_{3,1}) + 3*(c_{6,2}) - 24*(Inf)
     """
 
     p = MixedIntegerLinearProgram(maximization = False)
@@ -598,15 +702,22 @@ def yang_product(N,goal = 'small_deg',Dmin = None,denom = None, deg = None):
     for i in range(number_of_cusps):
         c = A.column(i)
         if i > 0:
+            p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),min = 0)
+
             if goal == 'concentrate':
                 f = AllCusps(N)[i]
                 d =  f.level()//f.width()
                 if d != denom:
                     p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),max = 0)
-                    p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),min = 0)
-            elif goal == 'small_deg' or goal == 'prescribe_degree':
-                    p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),min = 0)
-            elif goal == 'majorize':
+
+            elif goal == 'concentrate_exclude':
+                f = AllCusps(N)[i]
+                d =  f.level()//f.width()
+                if d == denom: # here denom should be a list of denominators
+                    p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),min = 1)
+                elif d in exclude:
+                    p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),max = 0)
+            elif goal == 'majorize' or goal == 'majorize-prescribe_degree':
                 f = AllCusps(N)[i]
                 d =  f.level()//f.width() # the denominator of this cusp. Note that this width is not the usual definition of width
                 try:
@@ -619,21 +730,25 @@ def yang_product(N,goal = 'small_deg',Dmin = None,denom = None, deg = None):
         else: # the cusp oo
             p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),max = -1) # Infinity is a pole.
             p.set_objective(-sum([b[j]*c[j] for j in range(number_of_etas)])) # we want to minimize the degree
-            if goal == 'prescribe_degree':
-                verbose('got here')
+            if goal == 'prescribe_degree' or goal == 'majorize-prescribe_degree':
                 p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),max = -deg)
                 p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),min = -deg)
         p.set_min(b[i],None) # so that b[i] can take negative values
 
-    p.solve(objective_only = False)
-    x = p.get_values(b)
-    verbose('x = %s'%x)
-
+    try:
+        p.solve(objective_only = False)
+        x = p.get_values(b)
+        verbose('x = %s'%x)
+    except:
+        verbose('no solution')
+        return None
     v = EtaGroup(N).basis()
-    d = [v[i]**(-x[i]) for i in range(len(v)) if x[i] <0]
-    if len(d) == 0:
-        return prod([v[i]**x[i] for i in range(len(v)) if x[i] >0])
-    else: return prod([v[i]**x[i] for i in range(len(v)) if x[i] >0])/prod(d)
+    one = EtaProduct(N,{})
+    d = [invert_eta(v[i])**(-x[i]) for i in range(len(v)) if x[i] <0] +[one]
+    n = [v[i]**x[i] for i in range(len(v)) if x[i] >0]+ [one]
+
+    return prod(n)*prod(d)
+
 
 
 def divisor_matrix_eta(N):
