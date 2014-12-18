@@ -92,11 +92,17 @@ class rFunction():
         N = self.N
         w = change_keys(v,N)
         h1 = yang_product(N,goal ='majorize',Dmin = w)
+
+
+
         degh1 =  ZZ(h1.degree())
 
         denom  = N// dprime
 
         h2 = yang_product(N,goal = 'concentrate',denom = denom)
+
+
+
         degh2 = ZZ(h2.degree())
         verbose('degh1 = %s, degh2 = %s'%(degh1,degh2))
         verbose('divisor of h2 = %s'%h2.divisor())
@@ -273,6 +279,9 @@ def cusp_diagram(N):
                 result[a] +=1
     return result
 
+
+def non_unitary_divisors(N):
+    return [d for d in N.divisors() if gcd(d,N//d) > 1]
 
 def normalize(g):
     """
@@ -711,9 +720,11 @@ def yang_product(N,goal = 'small_deg',Dmin = None,denom = None, deg = None,exclu
                     p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),max = 0)
 
             elif goal == 'concentrate_exclude':
+                if exclude is None:
+                    exclude = non_unitary_divisors(N)
                 f = AllCusps(N)[i]
                 d =  f.level()//f.width()
-                if d == denom: # here denom should be a list of denominators
+                if d == denom:
                     p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),min = 1)
                 elif d in exclude:
                     p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),max = 0)
@@ -726,7 +737,8 @@ def yang_product(N,goal = 'small_deg',Dmin = None,denom = None, deg = None,exclu
                     dmin = 0
                 p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),min = dmin) # zero at all other cusps
             else:
-                raise ValueError('invalid goal')
+                if not goal == 'small_deg' and not goal == 'prescribe_degree':
+                    raise ValueError('invalid goal %s'%goal)
         else: # the cusp oo
             p.add_constraint(sum([b[j]*c[j] for j in range(number_of_etas)]),max = -1) # Infinity is a pole.
             p.set_objective(-sum([b[j]*c[j] for j in range(number_of_etas)])) # we want to minimize the degree
