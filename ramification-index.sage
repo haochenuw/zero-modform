@@ -44,5 +44,3 @@ def ram_index(E,p):
 
 
 
-E = EllipticCurve('192a'); f = E.modular_form(); T = TypeSpaceModified(f,2)
-
