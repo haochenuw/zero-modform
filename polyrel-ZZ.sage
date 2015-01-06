@@ -1,8 +1,7 @@
 
 class rFunction():
     """
-    The r4 series and related modular functions on X_0(N)
-    when 4 \mid N
+    The r function r4 or r9. used to
     """
     def __init__(self,E,n):
         """
@@ -582,7 +581,7 @@ def atkin_lehner_eta(etaElement):
 
 def r0(E,prec,twisted = False):
     """
-    returns fj(j-1728)/j'
+    returns fj(j-1728)/j'. For use when the conductor N is not divisible by 4 or 9.
     """
 
     f = E.modular_form().qexp(prec)
@@ -608,6 +607,15 @@ def valr0(E):
     G = Gamma0(N)
     return ZZ(G.index() - len(G.cusps()))
 
+
+def u_series(prec):
+    """
+    return a q-expansion of u = (j-invariant)^{-1}
+    """
+    E4 = eisenstein_series_qexp(4, prec)
+    E6 = eisenstein_series_qexp(6, prec)
+    delta = delta_qexp(prec)
+    return delta/normalize(E4)**3
 
 def find_h(N):
     """
@@ -828,4 +836,73 @@ def adjust_to_coprime(a,b,M):
             return i
     return None
 
+
+import os
+
+def relation_zz(r,u,degr,degu,padding,description):
+    matrix = []
+    num_terms = (degu+1)*(degr+1)
+    prec = num_terms + padding
+    prec_small = prec - padding//2
+    t = cputime()
+    verbose('prec_small = %s'%prec_small)
+    R = r.parent()
+    q = R.gen()
+    pows_of_r, pows_of_u = [R(1)],[R(1)]
+    while len(pows_of_r) < degr+1:
+        s = pows_of_r[-1]
+        pows_of_r.append(s*r)
+    while len(pows_of_u) < degu+1:
+        m = pows_of_u[-1]
+        pows_of_u.append(m*u)
+
+    verbose('powers of r and u made')
+
+    verbose('making the matrix ...')
+
+    for a in range(degr+1):
+        for b in range(degu+1):
+            matrix.append(R(pows_of_r[a]*pows_of_u[b]).add_bigoh(prec_small).padded_list()[:prec_small])
+    Mp = Matrix(QQ,num_terms,prec_small,matrix)
+    save(matrix, os.path.join(os.environ['HOME'],'poly-relation','results','matrix-%s'%description))
+
+    verbose('matrix made, took %s seconds'%cputime(t))
+
+    verbose('computing the kernel...')
+    Ker = Mp.kernel()
+    verbose('got here')
+
+    K = list(Ker.basis_matrix())
+
+    verbose('dimension of kernel =  %s'%len(K))
+    if len(K) == 0: # kernel must be one-dimensional.
+        raise ValueError('got trivial kernel')
+
+
+    elif len(K) > 1:
+        verbose('the dimension of the kernel is: %s'%len(K))
+        if not os.path.exists('debug'):
+            os.makedirs('debug')
+        save(K,'debug/kernel-%s'%description)
+        #save(K, os.path.join(os.environ['HOME'],'poly-relation','debug','kernel-%s'%description))
+        raise ValueError('kernel is greater than one dimensional, please debug')
+
+    k = K[0]
+    kmat = Matrix(k[0].parent(),1,len(k),list(k))
+
+    if not os.path.exists('results'):
+        os.makedirs('results')
+
+    save(kmat,'results/kmat-%s'%description)
+    save(list(kmat), os.path.join(os.environ['HOME'],'poly-relation','results','relation-%s'%description))
+    verbose('the whole computation took %s seconds'%cputime(t))
+
+    kk = list(kmat)[0]
+    R.<r,u> = PolynomialRing(QQ,2)
+    F = R(0)
+    for a in range(degr+1):
+        for b in range(degu+1):
+                F += kk[a*(degu+1)+b]*r**a*u**b
+    save(F,'results/F-%s'%description)
+    return F
 

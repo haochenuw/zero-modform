@@ -1,4 +1,4 @@
-load('modified-typespace.sage')
+load('~/critical-point/modified-typespace.sage')
 
 
 def ram_index(E,p):
@@ -16,7 +16,6 @@ def ram_index(E,p):
         r = 1 if p >= 5.
     """
     if isinstance(E,str):
-        print 'E = %s'%E
         E = EllipticCurve(E)
     if not p.is_prime():
         raise ValueError('p must be a prime')
@@ -27,13 +26,11 @@ def ram_index(E,p):
         return 1
     else:
         r = N.valuation(p) //2
-        print('denom = %s'%p**r)
 
     f = E.modular_form()
     T = TypeSpaceModified(f,p)
     N1 = T.maximal_twist_level()
     assert N % N1 == 0
-    print('N1 = %s'%N1)
     adjustment = 1
     if N1.valuation(p) < 2:
         adjustment = p**(2-N1.valuation(p))

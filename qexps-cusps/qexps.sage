@@ -1,3 +1,29 @@
+def all_exps(r,u,M,prec):
+    """
+    Input:
+
+        r -- a power series starting with 1. r = f/w, where w is another meromorphic modular form of weight 2 and level
+        dividing the
+        u -- another modular function
+        M -- a 2*2 matrix of () rows and () columns such that
+            sum  M[a][b]r**a u**b = 0.
+
+    Output:
+        a list of all possible expansions rprime such that
+                    sum  M[a][b]rprime**a u**b = 0. (mod q**prec)
+
+    """
+
+
+
+
+
+
+
+
+
+
+
 def mod_poly(M1,N):
     x = var('x')
     y = var('y')
