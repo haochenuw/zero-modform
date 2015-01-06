@@ -839,7 +839,7 @@ def adjust_to_coprime(a,b,M):
 
 import os
 
-def relation_zz(r,u,degr,degu,padding,description):
+def relation_zz(r,u,degr,degu,padding = 50):
     matrix = []
     num_terms = (degu+1)*(degr+1)
     prec = num_terms + padding
@@ -864,7 +864,7 @@ def relation_zz(r,u,degr,degu,padding,description):
         for b in range(degu+1):
             matrix.append(R(pows_of_r[a]*pows_of_u[b]).add_bigoh(prec_small).padded_list()[:prec_small])
     Mp = Matrix(QQ,num_terms,prec_small,matrix)
-    save(matrix, os.path.join(os.environ['HOME'],'poly-relation','results','matrix-%s'%description))
+    save(matrix, 'results/matrix')
 
     verbose('matrix made, took %s seconds'%cputime(t))
 
@@ -894,7 +894,7 @@ def relation_zz(r,u,degr,degu,padding,description):
         os.makedirs('results')
 
     save(kmat,'results/kmat-%s'%description)
-    save(list(kmat), os.path.join(os.environ['HOME'],'poly-relation','results','relation-%s'%description))
+    save(list(kmat), 'RelationVector')
     verbose('the whole computation took %s seconds'%cputime(t))
 
     kk = list(kmat)[0]
@@ -903,6 +903,6 @@ def relation_zz(r,u,degr,degu,padding,description):
     for a in range(degr+1):
         for b in range(degu+1):
                 F += kk[a*(degu+1)+b]*r**a*u**b
-    save(F,'results/F-%s'%description)
+    save(F,'results/RelationPoly')
     return F
 
