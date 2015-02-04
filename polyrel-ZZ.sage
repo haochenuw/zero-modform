@@ -16,6 +16,15 @@ class rFunction():
         self.N = N
         self.n = n
 
+    def __repr__(self):
+        return 'a modular Function r%s on X0(%s) with divisor %s'%(self.n, self.N,self.divisor())
+
+    def divisor(self):
+        vpole = FormalSum([(b,a) for a,b in self.poles().items()])
+        vzero = FormalSum([(b,a) for a,b in self.zeros().items()])
+        return "div(w) + %s - %s"%(str(vzero),str(vpole))
+
+
     def poles(self):
         """
         returns a dictionary with keys the cusps and values the order of poles.
