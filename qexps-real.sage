@@ -1,24 +1,48 @@
-def get_leading_terms(E,F,d,hq):
+def get_leading_terms(F,K):
     """
-    E -- the elliptic curve
-    d -- the denominator of the cusp in question
-    F -- the polynomial relation F(r,h) = 0
-    hq -- the second modular function h.
-    """
-    N = E.conductor()
-    assert Mod(d^2,N) == 0
-    dprime = ZZ(N//d)
+    Input:
 
-    K = CyclotomicField(dprime,'zeta_%s'%dprime)
+    F -- the polynomial relation F(r,h) = 0
+    K -- a number field. We are only looking for the solutions in K[[q]].
+    Output:
+
+    the solutions to F(r,hq = 0) as power series. Removing all the conjugate duplicates.
+    """
     verbose('K = %s'%K)
     T.<b> = K[]
     R.<q> = T[[]]
     rq = R([b])
-    Sn = F(r = rq, h = hq) # means modulo q^{n+1}
+    r, u = F.parent().gens()
+
+    Sn = F(r = rq,u = 0) # means modulo q^{n+1}
     vn = Sn.valuation()
     # I think vn must be 0, since F(b,1) = 0 can't have infinitely many solution.
     func = Sn.padded_list()[Sn.valuation()]
     return [K[[q]]([a]).add_bigoh(1) for a in func.roots(multiplicities = False)]
+
+def remove_conjugates(K,v):
+    """
+    K -- a Galois number field
+    v -- a list of elements in K.
+
+    Output:
+    v' -- a list of v, where we keep one representative of each conjugacy class.
+
+    Examples::
+        sage: K.<zeta3> = CyclotomicField(3)
+        sage: v = [zeta3, -zeta3, -zeta3 - 1, zeta3 + 1]
+        sage: remove_conjugates(K,v)
+        [-zeta3, zeta3]
+    """
+    vs = Set([])
+    for a in v:
+        if not a in K:
+            a = K(a)
+        if Set(a.galois_conjugates(K)).intersection(vs) == Set([]):
+            vs = vs.union(Set([a]))
+    return list(vs)
+
+
 
 
 def lifts(F,rq,hq):
@@ -36,7 +60,8 @@ def lifts(F,rq,hq):
     RT = R.change_ring(T)
     rqnew= RT(rq.padded_list()+[b])
     verbose('rqnew = %s'%rqnew)
-    Feval = F(r=rqnew,h=hq)
+    r, u = F.parent().gens()
+    Feval = F(r=rqnew,u=hq)
     val = Feval.valuation()
     verbose('Feval = %s'%Feval)
     # did not mess up the old solution

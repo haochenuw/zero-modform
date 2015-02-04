@@ -1,3 +1,5 @@
+load('qexps-real.sage')
+
 
 class rFunction():
     """
@@ -23,7 +25,6 @@ class rFunction():
         vpole = FormalSum([(b,a) for a,b in self.poles().items()])
         vzero = FormalSum([(b,a) for a,b in self.zeros().items()])
         return "div(w) + %s - %s"%(str(vzero),str(vpole))
-
 
     def poles(self):
         """
@@ -85,6 +86,43 @@ class rFunction():
         if deg - 2*Gamma0(N).genus() + 2 - sum([b for a,b in self.zeros().items()]) != 0:
             raise ValueError("zeros and poles do not match")
         return deg
+
+    def relation_with_u(self):
+        """
+        return a polynomial relation between self and u = 1/j,
+        as  a polynomial in 2 variables with integer coefficients.
+        """
+        N = self.N
+        valu = Gamma0(N).index()
+        valr = self.degree()
+        print 'valu, valr = %s, %s'%(valu, valr)
+        degr,degu = valu, valr
+        padding = 50
+        prec = (degr+1)*(degu+1) + padding
+        rq = self.q_exp(prec)
+        rq = rq.power_series()
+        uq = u_series(prec)
+        return relation_zz(rq,uq,degr,degu)
+
+
+    def lifts_u(self,dprime,prec):
+        """
+        return all power series up to q^prec
+        such that P(r,u) = 0 mod q^{prec + 1}
+        K -- a number field. We are only looking
+        for the solutions in K[[q]].
+        """
+        uq = u_series(prec)
+        K = CyclotomicField(dprime,'zeta%s'%dprime)
+        F = self.relation_with_u()
+        cands = [s for s in get_leading_terms(F,K) if s(q=0).minpoly().degree == K.degree()]
+
+        # also we want to remove conjugates
+
+        # for cand in cands:
+
+        return cands
+
 
 
     def find_etas(self,dprime):
@@ -270,6 +308,7 @@ class rFunction():
         if Mod(totalDeg, sizeOfOrbit) != 0:
             raise ValueError('wrong')
         return (totalDeg//sizeOfOrbit ) -order
+
 
 
 
@@ -852,6 +891,7 @@ def relation_zz(r,u,degr,degu,padding = 50):
     matrix = []
     num_terms = (degu+1)*(degr+1)
     prec = num_terms + padding
+
     prec_small = prec - padding//2
     t = cputime()
     verbose('prec_small = %s'%prec_small)
@@ -873,13 +913,16 @@ def relation_zz(r,u,degr,degu,padding = 50):
         for b in range(degu+1):
             matrix.append(R(pows_of_r[a]*pows_of_u[b]).add_bigoh(prec_small).padded_list()[:prec_small])
     Mp = Matrix(QQ,num_terms,prec_small,matrix)
+
+    import os
+    if not os.path.exists('results'):
+        os.makedirs('results')
     save(matrix, 'results/matrix')
 
     verbose('matrix made, took %s seconds'%cputime(t))
 
     verbose('computing the kernel...')
     Ker = Mp.kernel()
-    verbose('got here')
 
     K = list(Ker.basis_matrix())
 
@@ -892,18 +935,14 @@ def relation_zz(r,u,degr,degu,padding = 50):
         verbose('the dimension of the kernel is: %s'%len(K))
         if not os.path.exists('debug'):
             os.makedirs('debug')
-        save(K,'debug/kernel-%s'%description)
-        #save(K, os.path.join(os.environ['HOME'],'poly-relation','debug','kernel-%s'%description))
+        save(K,'debug/kernel')
         raise ValueError('kernel is greater than one dimensional, please debug')
 
     k = K[0]
     kmat = Matrix(k[0].parent(),1,len(k),list(k))
 
-    if not os.path.exists('results'):
-        os.makedirs('results')
-
-    save(kmat,'results/kmat-%s'%description)
-    save(list(kmat), 'RelationVector')
+    #save(kmat,'results/kmat-%s'%description)
+    save(list(kmat), 'results/RelationVector')
     verbose('the whole computation took %s seconds'%cputime(t))
 
     kk = list(kmat)[0]
