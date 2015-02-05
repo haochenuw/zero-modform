@@ -105,24 +105,34 @@ class rFunction():
         return relation_zz(rq,uq,degr,degu)
 
 
-    def lifts_u(self,dprime,prec):
+    def lifts_u(self,dprime,prec = 10):
         """
         return all power series up to q^prec
         such that P(r,u) = 0 mod q^{prec + 1}
         K -- a number field. We are only looking
         for the solutions in K[[q]].
         """
-        uq = u_series(prec)
+        uq = u_series(prec+10)
         K = CyclotomicField(dprime,'zeta%s'%dprime)
         F = self.relation_with_u()
-        cands = [s for s in get_leading_terms(F,K) if s(q=0).minpoly().degree == K.degree()]
+        cands = [rq for rq in get_leading_terms(F,K) if rq(q = 0) != K(1)]
 
-        # also we want to remove conjugates
-
-        # for cand in cands:
-
-        return cands
-
+        result = []
+        for rq in cands:
+            liftFailed = False
+            for i in range(prec):
+                lifts_rq = lifts(F,rq,uq)
+                if len(lifts_rq) == 0:
+                    verbose('no lift with this rq = %s'%rq)
+                    liftFailed = True
+                    break
+                elif len(lifts_rq) > 1:
+                    raise ValueError('more than one lift for rq = %s, please see what is going on')
+                else:
+                    rq = lifts_rq[0]
+            if not liftFailed:
+                result.append(rq)
+        return result
 
 
     def find_etas(self,dprime):

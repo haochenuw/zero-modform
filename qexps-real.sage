@@ -8,7 +8,6 @@ def get_leading_terms(F,K):
 
     the solutions to F(r,hq = 0) as power series. Removing all the conjugate duplicates.
     """
-    verbose('K = %s'%K)
     T.<b> = K[]
     R.<q> = T[[]]
     rq = R([b])
@@ -18,7 +17,9 @@ def get_leading_terms(F,K):
     vn = Sn.valuation()
     # I think vn must be 0, since F(b,1) = 0 can't have infinitely many solution.
     func = Sn.padded_list()[Sn.valuation()]
-    return [K[[q]]([a]).add_bigoh(1) for a in func.roots(multiplicities = False)]
+    v = func.roots(multiplicities = False)
+    v1 = remove_conjugates(K,v)
+    return [K[[q]]([a]).add_bigoh(1) for a in v1]
 
 def remove_conjugates(K,v):
     """
@@ -59,14 +60,11 @@ def lifts(F,rq,hq):
     T.<b> = K[]
     RT = R.change_ring(T)
     rqnew= RT(rq.padded_list()+[b])
-    verbose('rqnew = %s'%rqnew)
     r, u = F.parent().gens()
     Feval = F(r=rqnew,u=hq)
     val = Feval.valuation()
-    verbose('Feval = %s'%Feval)
     # did not mess up the old solution
     fb = Feval.padded_list()[val] # a polynomial in one variable b.
-    verbose('fb = %s'%fb)
     blist = fb.roots(multiplicities = False)
     lifts = [R(rq.padded_list()+[b0]).add_bigoh(n+1) for b0 in blist]
     verbose('lifting done.')
