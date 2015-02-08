@@ -1,57 +1,77 @@
 from sage.matrix.matrix_integer_dense import _lift_crt
 
 
-def zero_poly(f,p,k,description,deg = 1,checkPower = 1,proof = True, multimodular = True):
+def zero_poly(f,level,weight,algorithm = 'multimodular'):
     """
-    Input: f -- the power series expansion of a modular form
-           k -- the weight of f
-    Output: the polynomial satified by the j-invariants of f(z)(dz)^k/2
+    Input:
+        f -- the power series expansion of a modular form.
+        level -- the level of f.
+        weight -- the weight of f.
+        algorithm:
+            'multimodular' -- default. Use the multimodular method to compute norm.
+            'integer' -- compute everything over ZZ
+
+    Output:
+        The polynomial satified by the j-invariants of zeros f(z)(dz)^(weight)/2.
     """
+
+    if not is_prime(level):
+        raise ValueError('level must be a prime.')
+    p = level
+    k = weight
+
+    # compute various precisions in the computations of series involved
     v = precs(p,k)
     try:
-        f = f.qexp(v[2]+10) # added one since the way qexp works.
+        f = f.qexp(v[2]+10)
     except:
         pass
-    if multimodular:
-        Nf = Norm(f,p,k,deg,checkPower,proof)
+
+    # computing the norm of f
+    if algorithm == 'multimodular':
+        Nf = Norm(f,p,k)
     else:
         Nf = Norm_int(f,p,k)
     verbose('done computing the norm')
+
+
     Fq = normalize(Nf)/normalize(weight_factor(p,k))
+
+    verbose('Fq = %s'%Fq)
+    # Now try to write Fq as a polynomial in the j-invariant.
     L = Fq.truncate_laurentseries(1).coefficients()
-    verbose("L = %s"%str(L))
+    verbose("len(L) = %s"%len(L))
     alist = []
-    prec_low = precs(p,k)[0]
-    verbose('prec_low =  %s'%prec_low)
-    assert len(L) == prec_low
+
+    prec_low = v[0]
+
     # computing the j-invariant
     E4 = eisenstein_series_qexp(4, prec_low+1)
     delta = delta_qexp(prec_low+1)
     j_inv = normalize(E4**3)/delta
     jinvs = [j_inv**0,j_inv]
-    while len(jinvs) < prec_low:
+    while len(jinvs) < len(L):
         a =  jinvs[-1]
         jinvs.append(a*j_inv)
     verbose('j-invariants computed')
-    assert len(jinvs) == prec_low
+
+    # recognize the coefficients. i.e. find the polynomial F s.t. F(j(q)) = Fq
     for i in range(prec_low):
         d = prec_low-1-i
         fd = get_principal_part(jinvs[d],prec_low)
         ad = L[i]/fd[i]
         alist.append(ad)
         L = [L[j]-ad*fd[j] for j in range(prec_low)]
-    #print 'L = ', L
-    T.<x> = QQ[]
-    F = T(alist[::-1])
-    save(F, os.path.join(os.environ['HOME'],'critical-point','zero-modform','F%s-%s-%s'%(p,k,description)))
-    verbose('zero polynomial computed and saved.')
+
+    F = QQ[x](alist[::-1])
+    verbose('zero polynomial computed')
     return F
 
 
 # the following is a simple version that computes the zero poly modulo p,
 # where p is the level.
 
-def zero_poly_modp(f,p,k,description):
+def zero_poly_modp(f,p,k):
     v = precs(p,k)
     try:
         f = f.qexp(v[1]+1) # added one since the way qexp works.
@@ -92,7 +112,6 @@ def zero_poly_modp(f,p,k,description):
         L = [L[j]-ad*fd[j] for j in range(prec_low)]
     T.<x> = GF(p)[]
     F = T(alist[::-1])
-    save(F, os.path.join(os.environ['HOME'],'critical-point','results','F%s-%s-%s'%(p,k,description)))
     verbose('zero polynomial computed and saved.')
     return F
 
@@ -209,7 +228,7 @@ def norm_mod_l(f,p,phip,l):
     verbose("The multiplication for the prime %s is performed within %s seconds"%(l, cputime(t)))
     #verbose("the old and new of coefficients for prime %s: %s, %s"%(l,len(F.padded_list()),len(F.padded_list()[0::p])))
     L = F.padded_list()[0::p]
-    save(L[:prec_med],'results/norm-mod-%s'%l)
+    #save(L[:prec_med],'results/norm-mod-%s'%l)
     return Matrix(GF(l),1,prec_med,L[:prec_med])
 
 
@@ -221,7 +240,7 @@ def _norm(f,p,phip,llist,a):
             Matlist.append(norm_mod_l(f,p,phip,l))
     return Matlist
 
-def norm(f,p,k,deg,checkPower,proof):
+def norm(f,p,k):
     """
     Given a modular form of weight k and level p.
     Use multimodular algorithm(computing mod primes, and use CRT to lift back)
@@ -233,15 +252,8 @@ def norm(f,p,k,deg,checkPower,proof):
     count = 0
     prec_big = f.prec()
     prec_med = (prec_big-pad)//p
-    bigN = coef_bound(f,p,k)
+    bigN = floor(coef_bound(f,p,k))
 
-    verbose('checkpower = %s'%checkPower)
-    bigN = floor(bigN**checkPower)
-
-
-    if not proof:
-        verbose('proof = False')
-        bigN = RealField(200)(sqrt(bigN)) # take its square root. Then the result could be double checked by mod p (?)
     phip = cyclotomic_polynomial(p)
     verbose('the bound on the size of coefficents of the norm is %s'%RR(bigN))
     llist = mod1_primes(p,2*bigN) #multiply by 2 since we are inside the interval [-bigN, bigN]
@@ -253,15 +265,15 @@ def norm(f,p,k,deg,checkPower,proof):
         Matlist += output[1]
 
     # save the matrix list to a file
-    #save(Matlist, os.path.join(os.environ['HOME'],'critical-point','debug','modlcoeffs%s'%p))
     M = _lift_crt(Matrix(ZZ, 1, prec_med), Matlist)
     R.<q> = QQ[[]]
     return R(M.list()).add_bigoh(prec_med)
 
-def Norm(f,p,k,deg,checkPower = 1,proof = True):
-    R.<q> = QQ[[]]
-    nf = norm(f,p,k,deg,checkPower,proof)
+def Norm(f,p,k):
+    nf = norm(f,p,k)
     prec_med = nf.prec()
+
+    R.<q> = QQ[[]]
     return R(nf*f.truncate(prec_med)).add_bigoh(prec_med)
 
 # algorithm for general square free level N #
@@ -290,7 +302,7 @@ def weight_index(N,k):
         return None
 
 
-def Norm_comp(f,N,weight,deg,multimodular,checkPower = 1):
+def Norm_comp(f,N,weight,multimodular):
     """
     Given a modular form of weight k and level N(N = square free),
     using multimodular algorithm(computing mod primes, and use CRT to lift back)
@@ -301,7 +313,7 @@ def Norm_comp(f,N,weight,deg,multimodular,checkPower = 1):
     tmp = f
     for p in v:
         if multimodular:
-            tmp = Norm(tmp,p,weight,deg,checkPower)
+            tmp = Norm(tmp,p,weight)
         else:
             tmp = Norm_int(tmp,p,weight)
         weight = weight*(p+1)
@@ -313,7 +325,7 @@ pad = 10 # the padding to make sure we have computed enough
 # to-do: return to Norm to deal with the issue of precision information
 
 
-def zero_poly_comp(f,N,k,description,deg =1,checkPower = 1,multimodular = False):
+def zero_poly_comp(f,N,k,multimodular = False):
     """
     zero-polynomial for composite square free level
 
@@ -327,7 +339,6 @@ def zero_poly_comp(f,N,k,description,deg =1,checkPower = 1,multimodular = False)
         raise NotImplementedError('N must be square free')
 
 
-    description += 'checkPower = %s'%checkPower
     prec_low,prec_med = base_prec(N,k)
     prec_high = sigma(N,1)*prec_med
     verbose('medium and high precs = %s, %s'%(prec_med,prec_high))
@@ -335,7 +346,7 @@ def zero_poly_comp(f,N,k,description,deg =1,checkPower = 1,multimodular = False)
         f = f.qexp(prec_high+pad+1)
     except:
         pass
-    Nf = Norm_comp(f,N,k,deg,multimodular,checkPower)
+    Nf = Norm_comp(f,N,k,multimodular)
     num_terms = prec_low
     verbose('valuation of Nf = %s'%Nf.valuation())
     verbose('done computing the norm')
@@ -365,7 +376,6 @@ def zero_poly_comp(f,N,k,description,deg =1,checkPower = 1,multimodular = False)
     print 'L = ', L
     T.<x> = QQ[]
     F = T(alist[::-1])
-    save(F, os.path.join(os.environ['HOME'],'critical-point','zero-modform','F-%s'%description))
     verbose('zero polynomial computed and saved.')
     return F
 
@@ -416,7 +426,6 @@ def Norm_int(f,p,k, use_cc = False):
         tmp = R([z**(ZZ(Mod(i*k,p)))*L[i] for i in range(prec)])
         #verbose("Creating poly tmp way took %s seconds"%cputime(t))
 
-        # save(tmp, os.path.join(os.environ['HOME'],'wstein','f%s'%k))
 
         F = F * tmp # k = 0,1,...,p-1
         F = F.truncate(prec)

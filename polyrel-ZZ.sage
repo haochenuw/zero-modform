@@ -1,4 +1,4 @@
-load('qexps-real.sage')
+load('~/critical-point/qexps-real.sage')
 
 
 class rFunction():
