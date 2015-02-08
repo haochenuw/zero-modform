@@ -160,6 +160,26 @@ def coef_bound(f,p,k):
     return RR(binomial(prec + p-1, p-1)*(RR(C)**p)*(prec//p)^(p*k/2))
 
 
+def coef_bound_weightfree(f,p):
+    """
+    given any cusp form f of level divisible by p,
+    compute a bound on the abs value of coefficients of norm(f),
+    defined as
+        norm(f) = \prod_{i mod p} f((z+i)/p).
+    """
+    if not is_prime(p):
+        raise ValueError
+
+    M = f.prec()
+    v = list(f.polynomial())
+
+    # we compute a constant d_f such that |a_n(f)| \leq (d_f)^n.
+    df = max([abs(v[n])**(1/n) for n in range(1,len(v))])
+    verbose('df = %s'%df)
+
+    return RR(binomial(M + p-1, p-1)*(df**M))
+
+
 
 
 def mod1_primes(p,N):
@@ -302,7 +322,7 @@ def weight_index(N,k):
         return None
 
 
-def Norm_comp(f,N,weight,multimodular):
+def Norm_comp(f,N,weight,algorithm = 'multimodular'):
     """
     Given a modular form of weight k and level N(N = square free),
     using multimodular algorithm(computing mod primes, and use CRT to lift back)
@@ -312,7 +332,7 @@ def Norm_comp(f,N,weight,multimodular):
     v = N.prime_divisors()
     tmp = f
     for p in v:
-        if multimodular:
+        if algorithm == 'multimodular':
             tmp = Norm(tmp,p,weight)
         else:
             tmp = Norm_int(tmp,p,weight)
@@ -320,14 +340,19 @@ def Norm_comp(f,N,weight,multimodular):
     return tmp
 
 
-pad = 10 # the padding to make sure we have computed enough
 
-# to-do: return to Norm to deal with the issue of precision information
-
-
-def zero_poly_comp(f,N,k,multimodular = False):
+def zero_poly_comp(f,level,weight,algorithm = 'multimodular'):
     """
     zero-polynomial for composite square free level
+
+    Input:
+        f -- a modular form.
+        level -- the level of f.
+        weight -- the weight of f.
+        algorithm -- 'multimodular' is default.
+
+    Output:
+        the polynomial with roots the j-invariants of zeros of f(z)(dz)^(weight/2)
 
     EXAMPLE::
     sage:E = EllipticCurve('26a1')
@@ -335,48 +360,52 @@ def zero_poly_comp(f,N,k,multimodular = False):
     sage:F = zero_poly_comp(f,26,2,'critical'); F.factor()
     (x-1728)^2
     """
-    if not N.is_squarefree():
-        raise NotImplementedError('N must be square free')
 
+    if not level.is_squarefree():
+        raise NotImplementedError('N must be square free')
+    N = level
+    k = weight
 
     prec_low,prec_med = base_prec(N,k)
     prec_high = sigma(N,1)*prec_med
     verbose('medium and high precs = %s, %s'%(prec_med,prec_high))
     try:
-        f = f.qexp(prec_high+pad+1)
+        f = f.qexp(prec_high+10)
     except:
         pass
-    Nf = Norm_comp(f,N,k,multimodular)
-    num_terms = prec_low
-    verbose('valuation of Nf = %s'%Nf.valuation())
+
+    # computing norm
+    Nf = Norm_comp(f,N,k,algorithm = algorithm)
+    verbose('valuation of Norm(f) = %s'%Nf.valuation())
     verbose('done computing the norm')
-    verbose('debug: type of N %s, k %s'%(type(N),type(k)))
-    verbose('Nf = %s'%Nf)
+
+
     Fq = normalize(Nf)/normalize(weight_factor(N,k))
     L = Fq.truncate_laurentseries(1).coefficients()
-    verbose("length of L is %s"%len(L))
     alist = []
-    verbose('number of terms =  %s'%num_terms)
-    assert len(L) == num_terms
+    if len(L) != prec_low:
+        raise ValueError('Length of principal part is off( = %s). Please debug.'%len(L))
     # computing the j-invariant
-    E4 = eisenstein_series_qexp(4, prec_low+1)
-    delta = delta_qexp(prec_low+1)
+
+    n = len(L)
+
+    E4 = eisenstein_series_qexp(4, n+1)
+    delta = delta_qexp(n+1)
     j_inv = normalize(E4**3)/delta
     jinvs = [j_inv**0,j_inv]
-    while len(jinvs) < num_terms:
+    while len(jinvs) < n:
         a =  jinvs[-1]
         jinvs.append(a*j_inv)
     verbose('j-invariants computed')
-    for i in range(num_terms):
+    for i in range(n):
         d = prec_low-1-i
-        fd = get_principal_part(jinvs[d],num_terms)
+        fd = get_principal_part(jinvs[d],n)
         ad = L[i]/fd[i]
         alist.append(ad)
-        L = [L[j]-ad*fd[j] for j in range(num_terms)]
+        L = [L[j]-ad*fd[j] for j in range(n)]
     print 'L = ', L
-    T.<x> = QQ[]
-    F = T(alist[::-1])
-    verbose('zero polynomial computed and saved.')
+    F = QQ[x](alist[::-1])
+    verbose('zero polynomial computed.')
     return F
 
 
