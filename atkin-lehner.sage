@@ -805,22 +805,22 @@ def al_point(E,q):
     if N % q != 0 or gcd(q,N/q) != 1:
         raise ValueError, 'q must exactly divide N'
     result = []
-    phi = ModularParametrization(E)
+    phi = E.modular_parametrization()
     xlist = solve_congruence(q,N)
     v1 = find_points(xlist,q,N,2)
-    X = CDF(sum([phi(CDF(a)) for a in v1]))
+    X = CDF(sum([phi.map_to_complex_numbers(CDF(a.z())) for a in v1]))
     result.append((E.elliptic_exponential(X),-4*q))
     if q == 2:
         v2 = find_points_2(N)
-        Y = CDF(sum([phi(CDF(a)) for a in v2]))
+        Y = CDF(sum([phi.map_to_complex_numbers(CDF(a)) for a in v2]))
         result.append((E.elliptic_exponential(Y),-4))
     elif q == 3:
         v2= find_points_3_fixed(N)
-        Y = CDF(sum([phi(CDF(a)) for a in v2]))
+        Y = CDF(sum([phi.map_to_complex_numbers(CDF(a)) for a in v2]))
         result.append((E.elliptic_exponential(Y),-3))
     elif Mod(q,4) == 3:
         v2 = find_points(xlist,q,N,1)
-        Y = CDF(sum([phi(CDF(a)) for a in v2]))
+        Y = CDF(sum([phi.map_to_complex_numbers(CDF(a.z())) for a in v2]))
         result.append((E.elliptic_exponential(Y),-q))
     return result
 

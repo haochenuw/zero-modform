@@ -13,7 +13,7 @@ class rFunction():
             raise ValueError('n must be 4 or 9.')
         N = E.conductor()
         if Mod(N,n) != 0:
-            raise ValueError('N( = %s) must be divisible by %s'%n)
+            raise ValueError('N( = %s) must be divisible by %s'%(N,n))
         self.E = E
         self.N = N
         self.n = n
@@ -135,7 +135,7 @@ class rFunction():
         return result
 
 
-    def find_etas(self,dprime):
+    def find_etas(self,goal = 'concentrate',deg = None, dprime = None):
         """
         finds a pair (h1,h2) of eta products on X0(N) of weigt 0, such that
         (1) h1 has only pole at infinity
@@ -150,24 +150,25 @@ class rFunction():
         h1 = yang_product(N,goal ='majorize',Dmin = w)
 
 
-
         degh1 =  ZZ(h1.degree())
 
-        denom  = N// dprime
+        if goal == 'concentrate':
 
-        h2 = yang_product(N,goal = 'concentrate',denom = denom)
-
+            denom  = N// dprime
+            h2 = yang_product(N,goal = 'concentrate',denom = denom)
+        else:
+            h2 = yang_product(N,goal =goal,deg = deg)
 
 
         degh2 = ZZ(h2.degree())
         verbose('degh1 = %s, degh2 = %s'%(degh1,degh2))
-        verbose('divisor of h2 = %s'%h2.divisor())
 
         if gcd(degh1,degh2) == 1:
-            verbose('degrees = %s,%s'%(h1.degree(),h2.degree()))
+            verbose('divisor of h1 = %s'%h1.divisor())
+            verbose('divisor of h2 = %s'%h2.divisor())
             return h1, h2
         else:
-            verbose('extra work being done...')
+            verbose('The degrees are not yet coprime, extra work being done to make it so...')
 
             # need some extra work]
             w1 = change_keys(cusp_diagram(N),N)
@@ -185,8 +186,9 @@ class rFunction():
                     else:
                         verbose('no eta function of such degree')
                 c += 1
-        verbose('divisor of h1 = %s'%h1new.divisor())
-        return h1new, h2
+            verbose('divisor of h1 = %s'%h1new.divisor())
+            verbose('divisor of h2 = %s'%h2.divisor())
+            return h1new, h2
 
     def q_exp(self,prec):
         """
@@ -251,12 +253,12 @@ class rFunction():
 
         return r
 
-    def get_expansions(self,dprime, padding =30):
+    def get_expansions(self,goal = 'concentrate', deg = None, dprime = None, padding =30):
         """
         return the expansions of rh1 and h2
         also return the extra "order" to be subtracted from our list
         """
-        h1, h2 = self.find_etas(dprime)
+        h1, h2 = self.find_etas(goal = goal, deg = deg, dprime = dprime)
 
         degh1, degh2 = ZZ(h1.degree()), ZZ(h2.degree())
         verbose('degh1 = %s, degh2 = %s'%(degh1,degh2))
@@ -285,27 +287,37 @@ class rFunction():
         save(rfinal,'results/rfinal-%s'%degh1)
         save(hfinal,'results/hfinal-%s'%degh2)
 
-        N = self.N
-        c = CuspFamily(N,dprime,'1')
-        orderFromr = self.zeros()[Cusp(1/(N//dprime))] - self.poles()[Cusp(1/(N//dprime))]
-        orderFromh1 = h1.order_at_cusp(c)
+        if goal == 'concentrate':
+            N = self.N
+            c = CuspFamily(N,dprime,'1')
+            orderFromr = self.zeros()[Cusp(1/(N//dprime))] - self.poles()[Cusp(1/(N//dprime))]
+            orderFromh1 = h1.order_at_cusp(c)
 
 
-        denom = N//dprime
+            denom = N//dprime
 
-        verbose('order from r = %s'%orderFromr)
-        verbose('order from h1 = %s'%orderFromh1)
-        order = orderFromr + orderFromh1
+            verbose('order from r = %s'%orderFromr)
+            verbose('order from h1 = %s'%orderFromh1)
+            order = orderFromr + orderFromh1
+            return rfinal,hfinal,degh1,degh2, order
+        else:
+            return rfinal,hfinal,degh1,degh2
 
-
-        return rfinal,hfinal,degh1,degh2, order
+    def poly_relation(self,goal = 'small_deg',deg = None):
+        """
+        return an 'as small as possible' polynomial relation
+        between a Yang pair (rh1,h2)
+        """
+        r,h,degr,degh = self.get_expansions(goal = goal, deg = deg)
+        verbose('r and h computed')
+        return yang_relation(r,h,degh,degr)
 
     @cached_method
     def order(self,dprime = 4):
         """
         return the order of vanishing of omega at cusps of denom dprime.
         """
-        r,h,degr,degh,order = self.get_expansions(dprime)
+        r,h,degr,degh,order = self.get_expansions(dprime = dprime)
         verbose('expansions obtained. Now computing a relation...')
         P = yang_relation(r,h,degh,degr,'test')
         x, y = P.parent().gens()
@@ -532,7 +544,12 @@ def make_pows(r,degr):
 
 import os
 
-def yang_relation(r,u,degr,degu,description):
+def yang_relation(r,u,degr,degu,description = 'None'):
+    """
+    warning: here degr and degu do not mean the degrees of the function,
+    but mean the degree of the other function, so if the number of
+    zeros of r is k, then deg u =  k.
+    """
     verbose('degr = %s'%degr)
     verbose('degu = %s'%degu)
     rows = degr + 1
@@ -567,7 +584,7 @@ def yang_relation(r,u,degr,degu,description):
         else:
             # solve x,y such that degu x + degr y = d
             a,b  = solve_dioph(degu,degr,abs(d))
-            verbose('a,b,c,d = %s,%s,%s,%s'%(a,b,c,d))
+            #verbose('a,b,c,d = %s,%s,%s,%s'%(a,b,c,d))
             remainder -= (c*rs[a]*us[b]).truncate(1)
             M[a][b] =  -c
             F += -c*x**a*y**b
@@ -731,17 +748,19 @@ def yang_product(N,goal = 'small_deg',Dmin = None,denom = None, deg = None,exclu
     """
     Input:
         N — the level
-        goal -- the type of eta product we want
-            'concentrate': m([Pd]-[oo]), d = denom.
-            'majorize': an eta product u of level N whose divisor is D - m[oo], where D majorizes Dmin.
-            'small_deg': want a eta product of divisor
-            'prescribe_degree': want the degree to be deg
+        goal -- the property of eta product h we want
+            'concentrate': Div(h) = m([Pd]-[oo]), d = denom.
+            'majorize': an eta product h of level N whose divisor is D - m[oo], where D majorizes Dmin.
+            'small_deg': want a eta product of degree as small as possible
+            'prescribe_degree': want the degree of h to equal deg
             'majorize-prescribe_degree': do both.
             'concentrate_exclude': an extension of concentrate: provide a list of denominators where the eta product can have zero.
 
-        Dmin -- a dictionary representing the divisor we want to majorize, only needed in 'majorize' mode.
+        Dmin -- a dictionary resenting the divisor we want to majorize, only needed in 'majorize' mode.
+        deg  -- the prescribed degree.
+        denom -- the denominator of the prescribed cusps.
     Output:
-        The corresponding eta product
+        The corresponding eta product h with prescribed properties.
 
     EXAMPLES::
         sage: h = yang_product(8); h.divisor()
@@ -818,8 +837,7 @@ def yang_product(N,goal = 'small_deg',Dmin = None,denom = None, deg = None,exclu
         x = p.get_values(b)
         verbose('x = %s'%x)
     except:
-        verbose('no solution')
-        return None
+        raise ValueError('there is no eta product with given properties.')
     v = EtaGroup(N).basis()
     one = EtaProduct(N,{})
     d = [invert_eta(v[i])**(-x[i]) for i in range(len(v)) if x[i] <0] +[one]
@@ -898,6 +916,7 @@ def adjust_to_coprime(a,b,M):
 import os
 
 def relation_zz(r,u,degr,degu,padding = 50):
+    t = cputime()
     matrix = []
     num_terms = (degu+1)*(degr+1)
     prec = num_terms + padding
@@ -924,6 +943,7 @@ def relation_zz(r,u,degr,degu,padding = 50):
             matrix.append(R(pows_of_r[a]*pows_of_u[b]).add_bigoh(prec_small).padded_list()[:prec_small])
     Mp = Matrix(QQ,num_terms,prec_small,matrix)
 
+    verbose('matrix made, took %s seconds'%cputime(t))
     import os
     if not os.path.exists('results'):
         os.makedirs('results')

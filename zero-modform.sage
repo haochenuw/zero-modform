@@ -5,7 +5,7 @@ def zero_poly(f,level,weight,algorithm = 'multimodular'):
     """
     Input:
         f -- the power series expansion of a modular form.
-        level -- the level of f.
+        level -- the level of f. Must be prime.
         weight -- the weight of f.
         algorithm:
             'multimodular' -- default. Use the multimodular method to compute norm.
@@ -231,7 +231,7 @@ def norm_mod_l(f,p,phip,l):
     z = v[0]
 
     prec_big = f.prec()
-    prec_med = (prec_big-pad)//p
+    prec_med = (prec_big-10)//p
     verbose("Number of multiplications to perform on powerseries with precision %s : %s"%(prec_big,p))
     L = f.padded_list() # raised everything to pth power q = q'^p
     Fl = z.parent()
@@ -271,8 +271,8 @@ def norm(f,p,k):
     Matlist = []
     count = 0
     prec_big = f.prec()
-    prec_med = (prec_big-pad)//p
-    bigN = floor(coef_bound(f,p,k))
+    prec_med = (prec_big)//p
+    bigN = floor(coef_bound_weightfree(f,p))
 
     phip = cyclotomic_polynomial(p)
     verbose('the bound on the size of coefficents of the norm is %s'%RR(bigN))
@@ -381,6 +381,9 @@ def zero_poly_comp(f,level,weight,algorithm = 'multimodular'):
 
 
     Fq = normalize(Nf)/normalize(weight_factor(N,k))
+
+
+    verbose('Fq = %s'%Fq)
     L = Fq.truncate_laurentseries(1).coefficients()
     alist = []
     if len(L) != prec_low:
@@ -403,7 +406,6 @@ def zero_poly_comp(f,level,weight,algorithm = 'multimodular'):
         ad = L[i]/fd[i]
         alist.append(ad)
         L = [L[j]-ad*fd[j] for j in range(n)]
-    print 'L = ', L
     F = QQ[x](alist[::-1])
     verbose('zero polynomial computed.')
     return F
