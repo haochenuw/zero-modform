@@ -72,6 +72,7 @@ def zero_poly(f,level,weight,algorithm = 'multimodular'):
 # where p is the level.
 
 def zero_poly_modp(f,p,k):
+
     v = precs(p,k)
     try:
         f = f.qexp(v[1]+1) # added one since the way qexp works.
@@ -414,37 +415,37 @@ def zero_poly_comp(f,level,weight,algorithm = 'multimodular'):
 
 
 
-def Norm_int(f,p,k, use_cc = False):
+def Norm_int(f,p,use_cc = False):
     """
     Computes the norm of a modular form of level p,
     where p is a prime. \prod f|_A for A in SL_2(ZZ)/Gamma0(p)
-    recommened prec = (g^3-g+1)*(p+1)
+    recommened prec = (g^3-g+1)*(p+1), to get enough precision for later use.
     Input:
         f -- a power series
         p -- the level of f
-        k -- the weight of f
         use_cc -- if true, uses complex floating point numbers
 
     """
     verbose('Computing a %s-norm'%p)
     if use_cc:
         C = ComplexField(f.prec()//3)
-        z = C.zeta(p)
+        zetap = C.zeta(p)
     else:
-        C.<z> = CyclotomicField(p)
+        C.<zetap> = CyclotomicField(p)
 
-    verbose('parent of series = %s'%f.parent())
-    verbose('prec of series = %s'%f.prec())
+    # verbose('parent of series = %s'%f.base_ring())
     try:
         q = f.parent().gen()
-        f = ZZ[[q]](f)
+        f = QQ[[q]](f)
     except:
-        raise ValueError("not a integral series")
+        raise ValueError("f must have rational coefficients")
     f = f.change_ring(C)
     R = f.parent()
-    q = R.gens()[0]
+    q = R.gen()
     prec = f.prec()
-    verbose("Number of multiplications to perform on powerseries with precision %s : %s"%(prec,p))
+    verbose('prec of series = %s'%prec)
+
+    verbose("Number of multiplications to perform on power series with %s terms is %s"%(prec,p))
     L = f.padded_list(prec) # raised everything to pth power q = q'^p
     F = R(1)
     for k in range(p):
@@ -454,17 +455,14 @@ def Norm_int(f,p,k, use_cc = False):
         #verbose("Creating poly took %s seconds"%cputime(t))
         #t = cputime()
 
-        tmp = R([z**(ZZ(Mod(i*k,p)))*L[i] for i in range(prec)])
+        tmp = R([zetap**(ZZ(Mod(i*k,p)))*L[i] for i in range(prec)])
         #verbose("Creating poly tmp way took %s seconds"%cputime(t))
 
-
         F = F * tmp # k = 0,1,...,p-1
-        F = F.truncate(prec)
+        F = F.truncate(prec).add_bigoh(prec)
         verbose("The %s th multiplication is performed within %s seconds"%(k+1, cputime(t)))
     # convert back to q
-    new_prec = ZZ(prec//p)
-    F_coef = F.padded_list()
-    F_coef = F_coef[0::p]
-    verbose('F_coef = %s'%F_coef)
-    F = R([F_coef[i] for i in range(new_prec)])
-    return F*f
+    verbose('F = %s'%F)
+    newprec = ZZ(prec//p)
+    newF = F.padded_list()[0::p]
+    return R(newF[:newprec]).add_bigoh(newprec)*f
