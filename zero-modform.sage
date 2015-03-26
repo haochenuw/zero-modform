@@ -3,9 +3,9 @@ from sage.matrix.matrix_integer_dense import _lift_crt
 
 def zero_poly(f,level,weight,algorithm = 'multimodular'):
     """
-    Input:
-        f -- the power series expansion of a modular form.
-        level -- the level of f. Must be prime.
+    Input
+        f -- a modular form, usually the newform attached to some elliptic curve.
+        level -- the level of f (Must be prime).
         weight -- the weight of f.
         algorithm:
             'multimodular' -- default. Use the multimodular method to compute norm.
@@ -16,9 +16,11 @@ def zero_poly(f,level,weight,algorithm = 'multimodular'):
     """
 
     if not is_prime(level):
-        raise ValueError('level must be a prime.')
+        raise ValueError('level must be prime.')
     p = level
     k = weight
+
+    t = cputime()
 
     # compute various precisions in the computations of series involved
     v = precs(p,k)
@@ -27,25 +29,28 @@ def zero_poly(f,level,weight,algorithm = 'multimodular'):
     except:
         pass
 
+    verbose('done computing the expansion of f, took %s seconds'%(cputime(t)))
+
     # computing the norm of f
     if algorithm == 'multimodular':
         Nf = Norm(f,p,k)
     else:
         Nf = Norm_int(f,p,k)
-    verbose('done computing the norm')
 
+    # verbose('done computing the norm of f, took %s seconds'%cputime(t))
 
+    # computing Fq := F_{E,j}(j(q))
     Fq = normalize(Nf)/normalize(weight_factor(p,k))
 
-    verbose('Fq = %s'%Fq)
-    # Now try to write Fq as a polynomial in the j-invariant.
+    # Knowing that the Laurent series Fq is a polynomial in the j-invariant,
+    # we recover the polynomial F_{E,j}.
     L = Fq.truncate_laurentseries(1).coefficients()
-    verbose("len(L) = %s"%len(L))
     alist = []
 
     prec_low = v[0]
 
-    # computing the j-invariant
+
+    # computing the q-expansion of the j-invariant.
     E4 = eisenstein_series_qexp(4, prec_low+1)
     delta = delta_qexp(prec_low+1)
     j_inv = normalize(E4**3)/delta
@@ -53,6 +58,7 @@ def zero_poly(f,level,weight,algorithm = 'multimodular'):
     while len(jinvs) < len(L):
         a =  jinvs[-1]
         jinvs.append(a*j_inv)
+
     verbose('j-invariants computed')
 
     # recognize the coefficients. i.e. find the polynomial F s.t. F(j(q)) = Fq
@@ -68,11 +74,87 @@ def zero_poly(f,level,weight,algorithm = 'multimodular'):
     return F
 
 
-# the following is a simple version that computes the zero poly modulo p,
-# where p is the level.
+def critjpoly_modl(E,l = None):
+    """
+    compute the
+    critical j-polynomial modulo l of an elliptic curve E.
+    conductor must be prime p. and l = 1 modulo p.
+    """
+    p = E.conductor()
+    weight = 2
+    v = precs(p,weight)
+
+    # first time the preparation
+    t = cputime()
+    f = E.modular_form().qexp(v[2]+10)
+    print 'terms of expansions used is %s'%f.prec()
+
+    # also get the estimate on the number of primes used.
+
+    bigN = coef_bound(f,p,weight)
+    llist = mod1_primes(p, 2*bigN)
+    nprimes = len(llist)
+
+    print 'the number of primes used = %s'%nprimes
+
+    if l is None:
+        l = llist[0]
+    print 'the prime l = %s'%l
+    phip = cyclotomic_polynomial(p)
+
+    print 'prep time = %s'%cputime(t)
+
+    t = cputime()
+    # time the norm computation mod one l.
+    normfmodl = norm_mod_l(f,p,phip,l)
+    print 'norm time = %s'%cputime(t)
+
+
+    # print 'time estimate', RR(t1) + RR(t2)*RR(nprimes)
+
+    t = cputime()
+    Rmodl.<q> = GF(l)[[]]
+    Normf = Rmodl(f.truncate(f.prec()//p))*Rmodl(normfmodl.list())
+    print 'part 2.5, get Norm: %s'%cputime(t)
+    Fq = normalize(Normf)/Rmodl(normalize(weight_factor(p,weight)))
+    # get the principal part + constant term.
+    L = Fq.shift(-Fq.valuation()).power_series().padded_list(-Fq.valuation()+1)
+    print 'part 3, get weight factors and L: %s'%cputime(t)
+
+    # powers of j-invariants modulo l
+    t = cputime()
+    prec_low = v[0]
+    if len(L) != prec_low:
+        raise ValueError('number of coefficients is incorrect. Please debug.')
+    RmodlL = Rmodl.laurent_series_ring()
+    E4 = Rmodl(eisenstein_series_qexp(4, prec_low+1))
+    delta = Rmodl(delta_qexp(prec_low+1))
+    j_inv = RmodlL(normalize(E4**3)/delta)
+    jinvs = [j_inv**0,j_inv]
+    while len(jinvs) < len(L):
+        a =  jinvs[-1]
+        jinvs.append(a*j_inv)
+    print 'part 4, get j invariants: %s'%cputime(t)
+
+    t = cputime()
+    alist = []
+    for i in range(prec_low):
+        d = prec_low-1-i
+        fd = get_principal_part(jinvs[d],prec_low,modp = True)
+        ad = L[i]/fd[i]
+        alist.append(ad)
+        L = [L[j]-ad*fd[j] for j in range(prec_low)]
+    print 'part 5, recognization: %s'%cputime(t)
+
+    return GF(l)[x](alist[::-1])
+    # print 'computation for prime l took %s seconds'%cputime(t)
 
 def zero_poly_modp(f,p,k):
-
+    '''
+    This function computes the zero poly F_{E,j} modulo p,
+    where p is the level.
+    (Not directly used for F_{E,j} computation, but can provide a sanity check.)
+    '''
     v = precs(p,k)
     try:
         f = f.qexp(v[1]+1) # added one since the way qexp works.
@@ -118,30 +200,34 @@ def zero_poly_modp(f,p,k):
 
 
 def normalize(g):
+    """
+    return the scaled power series so that its leading coefficient is one.
+    """
     return g/g.padded_list()[g.valuation()]
 
 
 
-
-def weight_factor(p,k):
-    prec_low = precs(p,k)[0]
+def weight_factor(p,k,prec = None):
+    if prec is None:
+        prec = precs(p,k)[0]
     A,B,C = weight_index(p,k)
-    E4 = eisenstein_series_qexp(4, prec_low)
-    E6 = eisenstein_series_qexp(6, prec_low)
-    delta = delta_qexp(prec_low+1)
+    E4 = eisenstein_series_qexp(4, prec)
+    E6 = eisenstein_series_qexp(6, prec)
+    delta = delta_qexp(prec+1)
     verbose('adjustment factors: %s, %s, %s'%(A,B,C))
     return delta**A*E4**B*E6**C
 
 
-def precs(p,k):
+def precs(p,weight):
     """
     returns the precisions needed for computing the zero
     polynomial of a modular form f.
     return a tuple (k(g-1)+2,kg+1,p(kg+1)). Ordered from
     small to large, and they are the precisions needed
     for (Delta,E4,E6), (f), (f(q^{1/p})), respectively.
-    We are going to add 1 for safety
+    We are going to add 1 for safety.
     """
+    k = weight
     g = Gamma0(p).genus()
     return (k*(g-1)+ 1 , k*g+1+1 , p*(k*g+1 + 1))
 
@@ -154,9 +240,9 @@ def coef_bound(f,p,k):
     """
     prec = f.prec()
     verbose('the precision of the power series = %s'%prec)
-    verbose('k = %s'%k)
+    verbose('weight = %s'%k)
     v = f.padded_list()
-    C = max([abs(v[n])/n^(k/2) for n in range(1,prec)])
+    C = max([abs(v[n])/RR(n^(k/2)) for n in range(1,prec)])
     verbose('the constant C used is %s'%RR(C))
     return RR(binomial(prec + p-1, p-1)*(RR(C)**p)*(prec//p)^(p*k/2))
 
@@ -167,15 +253,14 @@ def coef_bound_weightfree(f,p):
     compute a bound on the abs value of coefficients of norm(f),
     defined as
         norm(f) = \prod_{i mod p} f((z+i)/p).
+    p doesn't have to be a prime.
+    This bound does not depend on weight of f, and it gives a worse bound than coef_bound.
     """
-    if not is_prime(p):
-        raise ValueError
-
     M = f.prec()
     v = list(f.polynomial())
 
-    # we compute a constant d_f such that |a_n(f)| \leq (d_f)^n.
-    df = max([abs(v[n])**(1/n) for n in range(1,len(v))])
+    # we compute a constant d(f) such that |a_n(f)| \leq (d(f))^n.
+    df = RR(max([abs(RR(v[n]))**(1.0/n) for n in range(1,len(v))]))
     verbose('df = %s'%df)
 
     return RR(binomial(M + p-1, p-1)*(df**M))
@@ -185,9 +270,11 @@ def coef_bound_weightfree(f,p):
 
 def mod1_primes(p,N):
     """
+    p -- a prime
+    N -- a (large) integer
     return a list of primes l such that l = 1 (mod p)
-    and the product of all l in the list is > N
-    used for CRT lift
+    and the product of all primes l in the list is larger than N.
+    This is used for multimodular algorithms.
     """
     a = 1
     result = []
@@ -203,7 +290,8 @@ def get_principal_part(f,n,modp = False):
     """
     returns the principal part + constant part of the
     coefficients of a Laurent series f
-    if the length l <n, put n-l zeros in there.
+    if the length l < n, put (n-l) zeros in front so that the length of output is
+    always n.
     """
     if modp:
         q = f.parent().gen()
@@ -224,8 +312,9 @@ def norm_mod_l(f,p,phip,l):
     modulo a prime l that is congruent to 1 modulo p.
 
     Input: f -- a modular form with integer coefficients
-    z -- a root of \Phi_p(mod l) in GF(l)
     """
+
+    # get a p-th root of unity in the finite field F_l.
     phipl = phip.change_ring(GF(l))
     v = phipl.roots(multiplicities = False)
     v.sort()
@@ -233,47 +322,51 @@ def norm_mod_l(f,p,phip,l):
 
     prec_big = f.prec()
     prec_med = (prec_big-10)//p
-    verbose("Number of multiplications to perform on powerseries with precision %s : %s"%(prec_big,p))
+    # verbose("Number of multiplications to perform on powerseries with precision %s : %s"%(prec_big,p))
     L = f.padded_list() # raised everything to pth power q = q'^p
+
+    # construct the finite field,
     Fl = z.parent()
     Rl.<x> = Fl[[]]
     F = Rl(1)
     Lbar = [Fl(a) for a in L]
-    l = Fl.characteristic()
+
     verbose('Computing modulo the prime %s'%l)
     t = cputime()
     for k in range(p):
         tmp = Rl([z**(i*k)*Lbar[i] for i in range(prec_big)])
         F = F * tmp
         F = F.truncate(prec_big)
-    verbose("The multiplication for the prime %s is performed within %s seconds"%(l, cputime(t)))
-    #verbose("the old and new of coefficients for prime %s: %s, %s"%(l,len(F.padded_list()),len(F.padded_list()[0::p])))
+    verbose("The norm computation for the prime %s is performed within %s seconds"%(l, cputime(t)))
     L = F.padded_list()[0::p]
-    #save(L[:prec_med],'results/norm-mod-%s'%l)
     return Matrix(GF(l),1,prec_med,L[:prec_med])
 
 
-@parallel(ncpus = 12)
+@parallel(ncpus = 32)
 def _norm(f,p,phip,llist,a):
     Matlist = []
     for l in llist:
-        if Mod(l,20) == a:
+        if Mod(l,64) == a:
+            t = cputime()
             Matlist.append(norm_mod_l(f,p,phip,l))
+            # add a
+            print 'computation for the prime %s ( = %s mod %s) is done in %s seconds'%(l,a,64,cputime(t))
     return Matlist
 
 def norm(f,p,k):
     """
     Given a modular form of weight k and level p.
-    Use multimodular algorithm(computing mod primes, and use CRT to lift back)
-    to compute the norm of a modular form f of level p
-    ASSUMPTION: f has integer coefficients
+    Use multimodular algorithm (computing mod primes, and use CRT to lift back)
+    to compute the norm of a modular form f of level p.
+    ASSUMPTION: f has integer coefficients.
     """
 
     Matlist = []
     count = 0
     prec_big = f.prec()
     prec_med = (prec_big)//p
-    bigN = floor(coef_bound_weightfree(f,p))
+    #bigN = floor(coef_bound_weightfree(f,p))
+    bigN = floor(coef_bound(f,p,k))
 
     phip = cyclotomic_polynomial(p)
     verbose('the bound on the size of coefficents of the norm is %s'%RR(bigN))
@@ -281,11 +374,10 @@ def norm(f,p,k):
     verbose('we are using %s primes'%len(llist))
     verbose('the primes are %s'%str(llist))
 
-    inputs = [(f,p,phip,llist,a) for a in range(21) if gcd(a,21) == 1]
+    inputs = [(f,p,phip,llist,a) for a in range(64) if gcd(a,64) == 1]
     for output in _norm(inputs):
         Matlist += output[1]
 
-    # save the matrix list to a file
     M = _lift_crt(Matrix(ZZ, 1, prec_med), Matlist)
     R.<q> = QQ[[]]
     return R(M.list()).add_bigoh(prec_med)
@@ -293,9 +385,9 @@ def norm(f,p,k):
 def Norm(f,p,k):
     nf = norm(f,p,k)
     prec_med = nf.prec()
-
     R.<q> = QQ[[]]
     return R(nf*f.truncate(prec_med)).add_bigoh(prec_med)
+
 
 # algorithm for general square free level N #
 
@@ -315,7 +407,7 @@ def weight_index(N,k):
     v = N.prime_divisors()
     B = prod([(1 + kronecker(-3,p)) for p in v])*k
     C = prod([(1 + kronecker(-1,p)) for p in v if p != 2])*k//2
-    A = (k*(sigma(N,1))-4*B-6*C)/12
+    A = (k*Gamma0(N).index()-4*B-6*C)/12
     verbose('A,B,C = %s,%s,%s'%(A,B,C))
     try:
         return (ZZ(A),ZZ(B),ZZ(C))
@@ -383,8 +475,6 @@ def zero_poly_comp(f,level,weight,algorithm = 'multimodular'):
 
     Fq = normalize(Nf)/normalize(weight_factor(N,k))
 
-
-    verbose('Fq = %s'%Fq)
     L = Fq.truncate_laurentseries(1).coefficients()
     alist = []
     if len(L) != prec_low:
@@ -413,25 +503,28 @@ def zero_poly_comp(f,level,weight,algorithm = 'multimodular'):
 
 
 
+def norm_int(f,m,use_cc = False):
+    return Norm_int(f,m,use_cc, multiply_by_f = False)
 
 
-def Norm_int(f,p,use_cc = False):
+def Norm_int(f,m,use_cc = False,multiply_by_f = True):
     """
-    Computes the norm of a modular form of level p,
-    where p is a prime. \prod f|_A for A in SL_2(ZZ)/Gamma0(p)
+    Computes the "norm" of a modular form.
+    when m = p is prime, this is
+    \prod f|_A for A in SL_2(ZZ)/Gamma0(p)
     recommened prec = (g^3-g+1)*(p+1), to get enough precision for later use.
     Input:
         f -- a power series
-        p -- the level of f
+        m -- a positive integer
         use_cc -- if true, uses complex floating point numbers
 
     """
-    verbose('Computing a %s-norm'%p)
+    verbose('Computing a %s-norm'%m)
     if use_cc:
         C = ComplexField(f.prec()//3)
-        zetap = C.zeta(p)
+        zetam = C.zeta(m)
     else:
-        C.<zetap> = CyclotomicField(p)
+        C.<zetam> = CyclotomicField(m)
 
     # verbose('parent of series = %s'%f.base_ring())
     try:
@@ -445,24 +538,26 @@ def Norm_int(f,p,use_cc = False):
     prec = f.prec()
     verbose('prec of series = %s'%prec)
 
-    verbose("Number of multiplications to perform on power series with %s terms is %s"%(prec,p))
+    verbose("Number of multiplications to perform on power series with %s terms is %s"%(prec,m))
     L = f.padded_list(prec) # raised everything to pth power q = q'^p
     F = R(1)
-    for k in range(p):
+    for k in range(m):
         t = cputime()
 
         #tmp = R(sum([z**(ZZ(Mod(i*k,p)))*(q**i)*L[i] for i in range(prec)]))
         #verbose("Creating poly took %s seconds"%cputime(t))
         #t = cputime()
 
-        tmp = R([zetap**(ZZ(Mod(i*k,p)))*L[i] for i in range(prec)])
+        tmp = R([zetam**(ZZ(Mod(i*k,m)))*L[i] for i in range(prec)]).add_bigoh(prec)
         #verbose("Creating poly tmp way took %s seconds"%cputime(t))
 
         F = F * tmp # k = 0,1,...,p-1
-        F = F.truncate(prec).add_bigoh(prec)
         verbose("The %s th multiplication is performed within %s seconds"%(k+1, cputime(t)))
     # convert back to q
-    verbose('F = %s'%F)
-    newprec = ZZ(prec//p)
-    newF = F.padded_list()[0::p]
-    return R(newF[:newprec]).add_bigoh(newprec)*f
+    verbose('prec of F = %s'%F.prec())
+    newprec = ZZ(F.prec()//m)
+    newF = F.padded_list()[0::m]
+    result = R(newF).add_bigoh(newprec)
+    if multiply_by_f:
+        result*f
+    return result

@@ -375,10 +375,12 @@ def kernel(A,tau):
 
 # This is the main thing: Atkin-Lehner class
 class atkin_lehner(object):
-    def __init__(self, q,N):
+    def __init__(self, q, N):
         """
         returns the atkin-lehner matrix w_q of level N
         """
+        if Mod(N,q):
+            raise ValueError, 'q (%s) must divide N (%s)'%(q,N)
         g, x, y = xgcd(q, -N//q)
         if g != 1:
             raise ValueError, "q must exactly divide N"
@@ -387,6 +389,9 @@ class atkin_lehner(object):
             self.q = q
             self.N = N
             self.matrix = matrix([[q*x, y],[N,q]])
+
+    def __repr__(self):
+        return 'Atkin Lehner automorphism w%s = %s on X0(%s)'%(self.q,self.matrix,self.N)
 
     def __call__(self,c):
         row1,row2 = self.matrix
