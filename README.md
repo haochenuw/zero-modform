@@ -13,7 +13,7 @@ It computes the critical j-polynomial of atkin-lehner eigenform of _squarefree_ 
 
     sage: load('zero-modform.sage')
     sage: f = EllipticCurve('57a').modular_form();
-    sage: zero_poly_comp(f)
+    sage: zero_poly_comp(f).factor()
     (x - 54000)^2 * x^2 * (x^4 - 399605224650084576000*x^3 - 7985216535621460489954944000000*x^2 + 58827548670433207062445836288000000000*x + 120020259495560805847424176128000000000000)
 
 
