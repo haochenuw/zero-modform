@@ -350,7 +350,7 @@ def _norm(f,p,phip,llist,a):
             t = cputime()
             Matlist.append(norm_mod_l(f,p,phip,l))
             # add a
-            print 'computation for the prime %s ( = %s mod %s) is done in %s seconds'%(l,a,64,cputime(t))
+            # print 'computation for the prime %s ( = %s mod %s) is done in %s seconds'%(l,a,64,cputime(t))
     return Matlist
 
 def norm(f,p,k):
@@ -434,7 +434,7 @@ def Norm_comp(f,N,weight,algorithm = 'multimodular'):
 
 
 
-def zero_poly_comp(f,level,weight,algorithm = 'multimodular'):
+def zero_poly_comp(f,level = None, weight = None, algorithm = 'multimodular'):
     """
     zero-polynomial for composite square free level
 
@@ -453,11 +453,15 @@ def zero_poly_comp(f,level,weight,algorithm = 'multimodular'):
     sage:F = zero_poly_comp(f,26,2,'critical'); F.factor()
     (x-1728)^2
     """
+    if level is None:
+        level = f.level()
+        N = level
+    if weight is None:
+        weight = f.weight()
+        k = weight
 
     if not level.is_squarefree():
-        raise NotImplementedError('N must be square free')
-    N = level
-    k = weight
+        raise ValueError('N must be square free')
 
     prec_low,prec_med = base_prec(N,k)
     prec_high = sigma(N,1)*prec_med

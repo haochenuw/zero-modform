@@ -1,9 +1,21 @@
-zero-modform
+Computing zero polynomials of modular forms.
 ============
 
-Description of the code:
 
-zero-modform.sage: Computes j-polynomial of atkin-lehner eigenform of square free conductor N. (**Norm** method)
+
+### 1. zero-modform.sage:
+
+#### 1.0. What does it do:
+
+It computes the critical j-polynomial of atkin-lehner eigenform of _squarefree_ conductor N. (**Norm** method).
+
+#### 1.1. Usage:
+
+    sage: load('zero-modform.sage')
+    sage: f = EllipticCurve('57a').modular_form();
+    sage: zero_poly_comp(f).factor()
+    (x - 54000)^2 * x^2 * (x^4 - 399605224650084576000*x^3 - 7985216535621460489954944000000*x^2 + 58827548670433207062445836288000000000*x + 120020259495560805847424176128000000000000)
+
 
 exact-point.sage: Take as input the j-polynomial of a modular form, computes upper half plane representatives [z] for its zeros.
 
@@ -20,7 +32,7 @@ multimod.sage: Computes an u-polynomial of atkin-lehner eigenforms of any conduc
 polyrel-ZZ.sage: Computes u-polynomial of atkin-lehner eigenforms with r and u having concentrated poles. N does not have to be square free. (**Yang-product** method)
 
 recognize-hilbert.sage: Given an irreducible polynomial f(x) \in ZZ[x], determine if there exists a negative discriminant D
-such that $f = H_D(x)$. In the first case it finds such a $D$. 
+such that $f = H_D(x)$. In the first case it finds such a $D$.
 
 
 results/:
