@@ -1,4 +1,5 @@
 from sage.structure.sage_object import SageObject
+from sage.schemes.elliptic_curves.chow_heegner import ModularParametrization
 
 ##################################################################
 #             Hao Chen (chenh123@uw.edu)                         #
@@ -493,7 +494,7 @@ class AtkinLehnerFixedPoint():
     def N(self):
         return self._N
 
-    def _repr_(self):
+    def __repr__(self):
         q = self.q()
         N = self.N()
         alpha = 'sqrt(-'+str(q) + ')'
@@ -943,6 +944,38 @@ def find_points_3_fixed(N):
 def equal_to_zero(Q):
     return Q == 0 or max(abs(Q[0]),abs(Q[1])) >= 1e15
 
+def al_dict(F,d = None,eps = 1e-5):
+    '''
+    Input: elliptic curve F of conductor N, integer d
+    so that there exists atkin-lehner wd.
+    Output: a pre-image dictionary with keys the image of fix(wd), the
+    item associated with Q is a list consisting of points in fix(wd) that maps to Q.
+    i.e., an typical entry is {Q: psi^{-1}(Q)}.
+    eps - the small positive used to compare two points, can be changed.
+    '''
+    result = {}
+    N = F.conductor()
+    if d is None:
+        d = N
+    phi = ModularParametrization(F)
+    wd = atkin_lehner(d,N)
+    fixed = wd.fixed_points_h()
+    for pt in fixed:
+        P = F.elliptic_exponential(phi(CDF(pt.z())))
+        if result == {}:
+            result[P] = [pt];
+        else:
+            is_new_point = True
+            for Q in result.keys():
+                if is_close_ell(Q, P, eps):
+                    result[Q] += [pt]
+                    is_new_point = False
+                    break
+            if is_new_point:
+                result[P] = [pt]
+    return result
+
+
 def is_close_ell(P,Q,eps):
     if equal_to_zero(P) and equal_to_zero(Q):
         return True
@@ -950,36 +983,6 @@ def is_close_ell(P,Q,eps):
         return True
     else:
         return False
-
-def al_dict(F,d):
-    '''
-    Input: elliptic curve F of conductor N, integer d
-    so that there exists atkin-lehner wd.
-    Output: a pre-image dictionary with keys the image of fix(wd), the
-    item associated with Q is a list consisting of points in fix(wd) that maps to q.
-    eps- the small positive used to compare two points, can be changed.
-    '''
-    eps = 1e-5
-    result = {}
-    N = F.conductor()
-    phi = ModularParametrization(F)
-    wd = atkin_lehner(d,N)
-    fix = wd.fixed_points_h()
-    for z in fix:
-        P = F.elliptic_exponential(phi(CDF(z)))
-        if result == {}:
-            result[P] = [z];
-        else:
-            is_new_point = True
-            for Q in result.keys():
-                if is_close_ell(Q, P, eps):
-                    result[Q] += [z]
-                    is_new_point = False
-                    break
-            if is_new_point:
-                result[P] = [z];
-
-    return result
 
 def img_of_wdoo(F,d):
     N = F.conductor()
