@@ -1,7 +1,7 @@
 from sage.matrix.matrix_integer_dense import _lift_crt
 
 
-def zero_poly(f,level,weight,algorithm = 'multimodular'):
+def zero_poly(f,level = None,weight = None, algorithm = 'multimodular'):
     """
     Input
         f -- a modular form, usually the newform attached to some elliptic curve.
@@ -14,9 +14,14 @@ def zero_poly(f,level,weight,algorithm = 'multimodular'):
     Output:
         The polynomial satified by the j-invariants of zeros f(z)(dz)^(weight)/2.
     """
+    if level is None:
+        level = f.level()
+    if weight is None:
+        weight = f.weight()
 
     if not is_prime(level):
-        raise ValueError('level must be prime.')
+        raise ValueError('level ( = %s) must be prime.'%level)
+
     p = level
     k = weight
 
@@ -24,12 +29,14 @@ def zero_poly(f,level,weight,algorithm = 'multimodular'):
 
     # compute various precisions in the computations of series involved
     v = precs(p,k)
+
+    print 'Computing %s Fourier coefficients of f...'%(v[2] +10)
     try:
         f = f.qexp(v[2]+10)
     except:
         pass
 
-    verbose('done computing the expansion of f, took %s seconds'%(cputime(t)))
+    verbose('Done computing the expansion of f, took %s seconds'%(cputime(t)))
 
     # computing the norm of f
     if algorithm == 'multimodular':
@@ -233,15 +240,16 @@ def precs(p,weight):
 
 def coef_bound(f,p,k):
     """
+    Used for the multimodular algorithm.
     bound the largest possible coefficient of
-    a product of p modular forms with degree prec, where if f = \sum a_nq^n
+    a product of p modular forms of level p and weight k. with degree prec, where if f = \sum a_nq^n
     then each term in the product is f = \sum a_n b_n q^n
     with |b_n| = 1 for all n.
     """
     prec = f.prec()
     verbose('the precision of the power series = %s'%prec)
     verbose('weight = %s'%k)
-    v = f.padded_list()
+    v = f.padded_list(prec)
     C = max([abs(v[n])/RR(n^(k/2)) for n in range(1,prec)])
     verbose('the constant C used is %s'%RR(C))
     return RR(binomial(prec + p-1, p-1)*(RR(C)**p)*(prec//p)^(p*k/2))
@@ -254,15 +262,13 @@ def coef_bound_weightfree(f,p):
     defined as
         norm(f) = \prod_{i mod p} f((z+i)/p).
     p doesn't have to be a prime.
-    This bound does not depend on weight of f, and it gives a worse bound than coef_bound.
+    This bound does not depend on weight of f. It gives a worse bound than coef_bound.
     """
     M = f.prec()
     v = list(f.polynomial())
-
     # we compute a constant d(f) such that |a_n(f)| \leq (d(f))^n.
     df = RR(max([abs(RR(v[n]))**(1.0/n) for n in range(1,len(v))]))
     verbose('df = %s'%df)
-
     return RR(binomial(M + p-1, p-1)*(df**M))
 
 
@@ -353,7 +359,7 @@ def _norm(f,p,phip,llist,a):
             # print 'computation for the prime %s ( = %s mod %s) is done in %s seconds'%(l,a,64,cputime(t))
     return Matlist
 
-def norm(f,p,k):
+def norm(f,p,k, proof = False):
     """
     Given a modular form of weight k and level p.
     Use multimodular algorithm (computing mod primes, and use CRT to lift back)
@@ -365,11 +371,13 @@ def norm(f,p,k):
     count = 0
     prec_big = f.prec()
     prec_med = (prec_big)//p
-    #bigN = floor(coef_bound_weightfree(f,p))
-    bigN = floor(coef_bound(f,p,k))
 
+    if proof is True:
+        bigN = floor(coef_bound_weightfree(f,p))
+    else:
+        bigN = floor(coef_bound(f,p,k))
     phip = cyclotomic_polynomial(p)
-    verbose('the bound on the size of coefficents of the norm is %s'%RR(bigN))
+    verbose('multimodular bound is %s'%RR(bigN))
     llist = mod1_primes(p,2*bigN) #multiply by 2 since we are inside the interval [-bigN, bigN]
     verbose('we are using %s primes'%len(llist))
     verbose('the primes are %s'%str(llist))
