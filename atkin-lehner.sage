@@ -1,126 +1,308 @@
 from sage.structure.sage_object import SageObject
-from sage.schemes.elliptic_curves.chow_heegner import ModularParametrization
+# from sage.schemes.elliptic_curves.chow_heegner import ModularParametrization
 
 ##################################################################
 #             Hao Chen (chenh123@uw.edu)                         #
 ##################################################################
 
 
-#################################
-# part 0: chow-heenger index    #
-#################################
+## Part I: Copying William's ModularParametrization.
 
+class MyModularParametrization:
+    """
+    I claim no originality of this class. Since this is a small modification of
+    William's code.
+    """
+    def __init__(self,E):
+        if E.base_field() is not QQ:
+            raise TypeError, "E must be over QQ"
+        check_optimal(E)
+        self._E = E
+        self._label = E.cremona_label()
 
-def chow_heegner_index(lab1,lab2):
-    """
-    returns an integer m = 2**n
-    dividing the index of P_{E,F}.
-    When P_{E,F} is torsion, sometimes
-    prints a message, sometimes not.
-    """
-    E = EllipticCurve(lab1)
-    F = EllipticCurve(lab2)
-    phi = E.modular_parametrization()
-    psi = F.modular_parametrization()
-    N,N1 = E.conductor(),F.conductor()
-    if N1 != N:
-        raise NotImplementedError
-    qlist0 = []
-    for d in N.divisors():
-        if d != 1 and gcd(d,N/d) == 1:
-            qlist0.append(d)
-    #print 'list of possible q\'s:', str(qlist0)
-    wbarlist = []
-    greedypoints = set([])
-    for q in qlist0:
-        wq = atkin_lehner(q,N)
-        _,signE,PE = wq.induced_map(E)
-        #print 'induced map of wq on E: q = ' , q, signE,PE
-        wqbar,signF,PF = wq.induced_map(F)
-        #print 'induced map of wq on F: q = ' , q, signF,PF
-        if signE == -1:
-            return 'wq for q = ' + str(q)+'acts as -1, so P_E,F is torsion point'
-        elif PE != (0,0):
-            pass
-        elif signF == 1 and PF != (0,0):
-            pass
+    def __repr__(self):
+        return "Modular parametrization of %s with degree %s"%(self._label, self.degree())
+
+    def elliptic_curve(self):
+        return self._E
+
+    def degree(self):
+        return self._E.modular_degree()
+
+    def __call__(self,z):
+        if isinstance(z, list):
+            if len(z) == 0:
+                return []
+            d = max([B_bound(x.imag(), x.prec()) for x in z])
+            is_list = True
         else:
-            wbarlist.append((wqbar,q))
-            if signF == -1:
-                greedypoints.add((PF[0]/2,PF[1]/2))
-
-    #print 'greedypoints ', greedypoints
-    greedypoints = list(greedypoints)
-
-    if greedypoints == []:
-        #if all wbar acts as identity, then we
-        #can choose any point, al will permute the fibers
-        #hence we could avoid all the fixed points
-        return 2**(len(wbarlist))
-    results = []
-
-
-    dict1 = period_mapping_conv(F)
-    v1, v2 = dict1.keys()
-    A = matrix([list(v1),list(v2)])
-    #print 'A = ' , A
-    w1, w2 = dict1[v1], dict1[v2]
-    for gp in greedypoints:
-        wlist2 = [atkin_lehner(q,N) for q in al_fixing(gp,wbarlist)] #all atkin-lehner s.t. wqbar(gp) = gp.
-        #print 'gp ', gp
-        #print 'all wq fixing gp ', [wq.q for wq in wlist2]
-        W = 1+len(wlist2)
-
-        gp = vector(gp)
-
-        a, b = gp*(A**-1)
-        gpe  = F.elliptic_exponential(a*w1+b*w2)
-
-        v = fixed_points_above_p(wlist2,psi,gpe)
-        #print 'bad points', v
-        if len(v) > 0:
-           results.append(W/2)
-        else:
-            #free action
-            results.append(W)
-    return min(results)
+            z = [z]
+            d = B_bound(z[0].imag(), z[0].prec())
+            is_list = False
+        f = phi_poly(self._E, d, base_field=z[0].parent())
+        #if z[0].prec() > 53:
+        #    f = ComplexPolynomial(f)
+        #else:
+        #    f = Polynomial_RDF_gsl(f)
+        w = []
+        for x in z:
+            q = h_to_disk(x)
+            w.append(f(q))
+        if not is_list:
+            return w[0]
+        return w
 
 
-def al_fixing(gp,wbarlist):
+def check_optimal(E):
+    try:
+        if not E.cremona_label().endswith('1'):
+            raise ValueError, "curve must be optimal"
+    except RuntimeError:
+        pass
+
+
+def B_bound(ymin,prec):
+    y = RR(ymin)
+    epsilon = RR(2)**(-(prec+1))
+    pi = RR.pi()
+    return int((epsilon*(1 - (-2*pi*y).exp())).log() / (-2*pi*y)) + 1
+
+def phi_poly(E, B, base_field=QQ):
+    R = base_field['q']
+    v = E.anlist(B+1)
+    return R([0] + [v[n]/n for n in range(1,B+1)])
+
+
+def h_to_disk(z):
+    K = z.parent()
+    return (2*K.pi()*K.gen()*z).exp()
+
+#### Part II: fixed points computations for Chow-Heegner purposes.
+
+def fixed_points_above_point(W,F,P, prec = 100):
     """
-    given a greedy point on F, give back all the possible q's such that
-    wqbar fixes gp.
+    Given a point P on Elliptic Curve F,
+    returns all atkin-lehner fixed points on X0(N)
+    that maps to P.
+    Input:
+       W -- an atkin lehner operators
+       F -- an elliptic curve
+       P -- a point on F, represented as (x:y:z)
     """
-    result  = []
-    for wbar,q in wbarlist:
-        #print gp, wbar(gp)
-        if wbar(gp) == gp:
-            result.append(q)
+    psi = MyModularParametrization(F)
+    v = []
+    verbose('P = %s'%P)
+    for Q in W.fixed_points_h():
+        Qtau  = Q.tau(prec = prec)
+        psiQ = F.elliptic_exponential(Qtau)
+        verbose('Q, psiQ = %s,%s'%(Q,psiQ))
+        if is_close(psiQ,P):
+            v.append(Q)
+    return v
+
+def atkin_lehner_map(W,F,prec =100):
+    """
+    return a list of points on E, defined such that
+    P = phi(phi^*(Q) cap Fix(W)), for all Q such that intersection is nonempty.
+    """
+    result = []
+    Fixw = W.fixed_points_h()
+    h = len(Fixw)
+    print 'Number of fixed points = %s'%h
+
+    psi = MyModularParametrization(F)
+    result = {}
+    for z in Fixw:
+        tau = z.tau(prec = prec)
+        result[z] = F.elliptic_exponential(psi(tau))
     return result
 
+def preimage(al_map, Q,  prec = None):
+    """
+    the preimage of Q intersected with Fix(w).
+    """
+    if prec is None:
+        prec = Q[0].parent().prec()//3
+    return [z for z in al_map.keys() if is_close(al_map[z],Q, prec)]
 
 
-def fixed_points_above_p(wlist,psi,P,eps = 1e-7):
-   """
-   Given a point P on Elliptic Curve F,
-   returns all atkin-lehner fixed points on X0(N)
-   that maps to P.
-   Input:
-       wlist -- a list of atkin-lehner operators
-       that induces a map on F that fixes P
-       psi -- modular parametrization X0(N) -> F
-       P -- a point on F, represented as (x:y:z)
-   """
-   F = psi.curve()
-   v = []
-   dict
-   for wq in wlist:
-       for Q in wq.fixed_points_h():
-           #print psi(Q)[0], P[0]
-           #psi(Q) is of the form (x:y:z)
-           if abs(psi(Q)[0] - P[0])<eps:
-               v.append((wq.q, Q))
-   return v
+
+
+
+def throw_away_close(v, prec = None):
+    verbose('precision used for throw away close = %s'%prec)
+    w = []
+    if prec is None:
+        prec = v[0][0].parent().prec() // 3
+    for P in v:
+        if w == [] or (not any([is_close(P,Q, prec) for Q in w])):
+            w.append(P)
+    return w
+
+def is_close(P,Q, prec):
+    x, y,z = P
+    xq, yq, zq = Q
+    eps = 2**(-prec)
+
+    return abs(x-xq) < eps and abs(y-yq) < eps and abs(z-zq) < eps
+
+
+
+# Next thing: create a class for chow-heegner al index
+
+
+class ChowHeegnerALPart():
+    """
+    well, all information we need to compute the "atkin-lehner point".
+    """
+    def __init__(self,E,F):
+        self.E = E
+        self.F = F
+        N = E.conductor()
+        NF = F.conductor()
+        if NF != N:
+            raise ValueError('conductors %s %s must be equal'%(N,NF))
+        self.N = N
+        self.W = atkin_lehner(N)
+        self._fixed_points = self.W.fixed_points_h()
+        self.psi = MyModularParametrization(F)
+
+    @cached_method
+    def al_map(self, prec = 100):
+        return atkin_lehner_map(W,F,prec = prec)
+
+
+    @cached_method
+    def al_image_on_F(self):
+        """
+        the images of al_map. Content: we throw away all close points.
+        """
+        v = self.al_map().values()
+        w = throw_away_close(v)
+        # if len(w) > 4: # fixme: this check makes some assumptions on F?
+        verbose('image has size %s'%len(w))
+        if len(w) != 4:
+            print 'warning: image size is not 4.'
+        return w
+
+    def __repr__(self):
+        return "atkin-lehner part of the chow-heegner point associated to E = %s and F = %s"%(E.label(),F.label())
+
+    @cached_method
+    def al_points_numerical(self, allpoints = True):
+        """
+        returns a random atkin-lehner point.
+        returns a list of pairs (Q,P), where P on E is the al-point of Q on F.
+        """
+        _map = self.al_map()
+        image = self.al_image_on_F()
+        phi = MyModularParametrization(E)
+        result = []
+        for Q in image:
+            prec = Q[0].parent().prec()
+            preimages = preimage(_map, Q)
+            al_Q = E.elliptic_exponential(sum([phi(z.tau(prec=prec)) for z in preimages]))
+            result.append((Q,al_Q))
+        if allpoints:
+            return result
+        else:
+            return result[0]
+
+    @cached_method
+    def fixed_points(self):
+        return self._fixed_points
+
+    def al_point_exact(self):
+        """
+        second main function.
+        in contrast to al_point_exact, do it so that...
+        """
+        # idea is to reach over to all the points and for the x-poly
+        # Then use algdep. Use the field K for double check.
+        v = self.al_points_numerical()
+        prec = v[0][0][0].parent().prec()
+        PR = PolynomialRing(ComplexField(prec),'x')
+        x = PR.gen()
+
+        xpoly_num = PR(1)
+        for P in v:
+            xpoly_num*= PR(x-P[1][0])
+        print xpoly_num
+
+        exactCoeffs = []
+        for coeff in list(xpoly_num):
+            minpoly = QQ[x](algdep(coeff,2))
+            if minpoly.degree() == 1:
+                coeff_QQ = minpoly.roots(multiplicities = False)[0]
+                exactCoeffs.append(coeff_QQ)
+            else:
+                raise ValueError('algdep failed to recognize a rational number')
+        ff = QQ[x](exactCoeffs)
+        K = self.extension_field()
+        print 'K = %s'%K
+        try:
+            xcoord = K[x](ff).roots(multiplicities = False)[0]
+        except:
+            raise ValueError('x is not defined over K')
+        h = E.defining_polynomial().change_ring(K)
+        x,y,z = h.parent().gens()
+        print 'h = %s'%h
+        g = h(x=xcoord,z=1).univariate_polynomial()
+        try:
+            ycoord = g.roots(multiplicities= False)[0]
+        except:
+            raise ValueError('y is not defined over K')
+        try:
+            EK = E.change_ring(K)
+            P = EK((xcoord,ycoord))
+            return P
+        except:
+            raise ValueError('(x,y) is not on E.')
+
+
+    @cached_method
+    def image_of_zero_on_F(self, prec =200):
+        """
+        computes \psi(0) \in F(Q)
+        possibly using...
+        test this:
+        """
+        psi = self.psi
+        z = self._fixed_points[0]
+        Tnum = F.elliptic_exponential(2*psi(z.tau(prec = prec)))
+        verbose('torsion point = %s'%Tnum)
+
+        for tor in F.torsion_points():
+            if is_close(tor,Tnum, prec //3):
+                return tor
+        raise ValueError('failed to recognize torsion point %s'%Tnum)
+
+    def extension_field(self):
+        """
+        The field generated by psi(z).
+        Note that this is an exact calculation
+        """
+        tor = self.image_of_zero_on_F()
+        xpoly = tor.division_points(2, poly_only = True)
+        K.<a> = NumberField(xpoly)
+        var('y')
+        g = K[y](F.defining_polynomial().change_ring(K)(x=a,z=1))
+        L.<b> = K.extension(g)
+        M.<c> = L.absolute_field()
+        return M
+
+    def check_even_index(self):
+        """
+        main funcionality. checks if the atkin-lehner point is in 2E(K).
+        """
+        P = self.al_point_exact()
+        if len(P.division_points(2)) > 0:
+            print 'even index confirmed!'
+            return True
+        else:
+            return False
+
+
 
 ##################################
 # part I: period mapping methods #
@@ -376,10 +558,13 @@ def kernel(A,tau):
 
 # This is the main thing: Atkin-Lehner class
 class atkin_lehner(object):
-    def __init__(self, q, N):
+    def __init__(self, N,q = None):
         """
         returns the atkin-lehner matrix w_q of level N
         """
+        if q is None:
+            # default: q = N
+            q = N
         if Mod(N,q):
             raise ValueError, 'q (%s) must divide N (%s)'%(q,N)
         g, x, y = xgcd(q, -N//q)
@@ -493,6 +678,12 @@ class AtkinLehnerFixedPoint():
 
     def N(self):
         return self._N
+
+    def tau(self, prec = 53):
+        return self.z().n(prec =  prec)
+
+    def __hash__(self):
+        return hash(self._z)
 
     def __repr__(self):
         q = self.q()
