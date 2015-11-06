@@ -30,13 +30,14 @@ def zero_poly(f,level = None,weight = None, algorithm = 'multimodular'):
     # compute various precisions in the computations of series involved
     v = precs(p,k)
 
-    print 'Computing %s Fourier coefficients of f...'%(v[2] +10)
+    verbose('Computing %s Fourier coefficients of f...'%(v[2] +10))
     try:
         f = f.qexp(v[2]+10)
     except:
         pass
 
     verbose('Done computing the expansion of f, took %s seconds'%(cputime(t)))
+    verbose('precision of f = %s'%f.prec())
 
     # computing the norm of f
     if algorithm == 'multimodular':
@@ -44,9 +45,9 @@ def zero_poly(f,level = None,weight = None, algorithm = 'multimodular'):
     else:
         Nf = Norm_int(f,p,k)
 
-    # verbose('done computing the norm of f, took %s seconds'%cputime(t))
+    verbose('done computing the norm of f, took %s seconds'%cputime(t))
 
-    # computing Fq := F_{E,j}(j(q))
+    verbose('computing Fq := F_{E,j}(j(q))...')
     Fq = normalize(Nf)/normalize(weight_factor(p,k))
 
     # Knowing that the Laurent series Fq is a polynomial in the j-invariant,
@@ -262,7 +263,8 @@ def coef_bound_weightfree(f,p):
     defined as
         norm(f) = \prod_{i mod p} f((z+i)/p).
     p doesn't have to be a prime.
-    This bound does not depend on weight of f. It gives a worse bound than coef_bound.
+    This bound does not depend on weight of f. It may or may not give a worse bound than coef_bound.
+    Also, this bound is more general: it does not require f to be an eigenform.
     """
     M = f.prec()
     v = list(f.polynomial())
@@ -328,7 +330,7 @@ def norm_mod_l(f,p,phip,l):
 
     prec_big = f.prec()
     prec_med = (prec_big-10)//p
-    # verbose("Number of multiplications to perform on powerseries with precision %s : %s"%(prec_big,p))
+    print("Number of multiplications to perform on powerseries mod %s with precision %s : %s"%(l, prec_big,p))
     L = f.padded_list() # raised everything to pth power q = q'^p
 
     # construct the finite field,
@@ -337,13 +339,12 @@ def norm_mod_l(f,p,phip,l):
     F = Rl(1)
     Lbar = [Fl(a) for a in L]
 
-    verbose('Computing modulo the prime %s'%l)
     t = cputime()
     for k in range(p):
         tmp = Rl([z**(i*k)*Lbar[i] for i in range(prec_big)])
         F = F * tmp
         F = F.truncate(prec_big)
-    verbose("The norm computation for the prime %s is performed within %s seconds"%(l, cputime(t)))
+    print("The norm computation for the prime %s is performed within %s seconds"%(l, cputime(t)))
     L = F.padded_list()[0::p]
     return Matrix(GF(l),1,prec_med,L[:prec_med])
 
@@ -352,39 +353,44 @@ def norm_mod_l(f,p,phip,l):
 def _norm(f,p,phip,llist,a):
     Matlist = []
     for l in llist:
+        verbose('l = %s'%l)
         if Mod(l,64) == a:
             t = cputime()
             Matlist.append(norm_mod_l(f,p,phip,l))
-            # add a
-            # print 'computation for the prime %s ( = %s mod %s) is done in %s seconds'%(l,a,64,cputime(t))
     return Matlist
 
-def norm(f,p,k, proof = False):
+def norm(f,p,k, proof = False, ncpus = 64): # to-do: add parallel = false
     """
     Given a modular form of weight k and level p.
     Use multimodular algorithm (computing mod primes, and use CRT to lift back)
     to compute the norm of a modular form f of level p.
     ASSUMPTION: f has integer coefficients.
     """
-
+    verbose('computing the norm of f, with level %s and weight %s...'%(p,k))
     Matlist = []
     count = 0
     prec_big = f.prec()
     prec_med = (prec_big)//p
 
-    if proof is True:
-        bigN = floor(coef_bound_weightfree(f,p))
-    else:
-        bigN = floor(coef_bound(f,p,k))
+    bigN1 = floor(coef_bound_weightfree(f,p))
+    bigN2 = floor(coef_bound(f,p,k))
+    bigN = min(bigN1,bigN2)
+    if proof is False:
+        bigN = RR((bigN)**(0.75))
     phip = cyclotomic_polynomial(p)
-    verbose('multimodular bound is %s'%RR(bigN))
+    verbose('multimodular bound is %s'%bigN.n())
     llist = mod1_primes(p,2*bigN) #multiply by 2 since we are inside the interval [-bigN, bigN]
     verbose('we are using %s primes'%len(llist))
     verbose('the primes are %s'%str(llist))
 
-    inputs = [(f,p,phip,llist,a) for a in range(64) if gcd(a,64) == 1]
+    inputs = [(f,p,phip,llist,a) for a in range(ncpus*2) if gcd(a,ncpus*2) == 1]
+    count = 0
     for output in _norm(inputs):
+        count += 1
         Matlist += output[1]
+        print 'output[1] = %s'%output[1]
+        print 'count = %s'%count
+    print 'Number of vectors mod p obtained = %s'%len(Matlist)
 
     M = _lift_crt(Matrix(ZZ, 1, prec_med), Matlist)
     R.<q> = QQ[[]]
